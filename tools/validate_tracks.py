@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Vérifie les cartes partagées (tracks/*.json) : format, 360 points, secteurs, nom de fichier."""
+
 import glob
 import json
 import os

@@ -8,6 +8,7 @@ Options : --no-push (commit seulement), --force (remplace une carte déjà prés
 
 Étapes : cartes complètes avec secteurs -> validation -> copie dans tracks/ -> index -> git commit + push.
 """
+
 import argparse
 import json
 import os

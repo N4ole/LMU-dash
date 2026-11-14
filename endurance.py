@@ -1,5 +1,6 @@
 """Suivi d'endurance : pilotes, relais, historique des tours. Travaille sur le payload déjà
 construit par le lecteur (jeu ou démo), donc identique dans les deux modes."""
+
 from __future__ import annotations
 
 import csv
@@ -28,10 +29,10 @@ class Endurance:
 
     def reset(self) -> None:
         with self.lock:
-            self.drivers: dict[str, dict] = {}   # nom -> {total, stints, laps, best}
-            self.stints: list[dict] = []          # relais terminés
+            self.drivers: dict[str, dict] = {}  # nom -> {total, stints, laps, best}
+            self.stints: list[dict] = []  # relais terminés
             self.laps: list[dict] = []
-            self.cur: dict | None = None          # relais en cours
+            self.cur: dict | None = None  # relais en cours
             self.driver: str | None = None
             self.last_et: float | None = None
             self.prev_in_pits: bool | None = None
@@ -44,7 +45,15 @@ class Endurance:
         return self.drivers.setdefault(name, {"total": 0.0, "stints": 0, "laps": 0, "best": None})
 
     def _open(self, et: float, laps: int, driver: str) -> None:
-        self.cur = {"driver": driver, "startET": et, "endET": None, "startLaps": laps, "times": [], "laps": 0, "best": None}
+        self.cur = {
+            "driver": driver,
+            "startET": et,
+            "endET": None,
+            "startLaps": laps,
+            "times": [],
+            "laps": 0,
+            "best": None,
+        }
 
     def _finish_stint(self) -> None:
         c = self.cur
@@ -53,11 +62,17 @@ class Endurance:
         if c["laps"] >= 1:
             end = c["endET"] if c["endET"] is not None else c["startET"]
             t = c["times"]
-            self.stints.append({
-                "n": len(self.stints) + 1, "driver": c["driver"], "firstLap": c["startLaps"] + 1, "laps": c["laps"],
-                "dur": round(max(0.0, end - c["startET"]), 1), "best": c["best"],
-                "avg": round(sum(t) / len(t), 3) if t else None,
-            })
+            self.stints.append(
+                {
+                    "n": len(self.stints) + 1,
+                    "driver": c["driver"],
+                    "firstLap": c["startLaps"] + 1,
+                    "laps": c["laps"],
+                    "dur": round(max(0.0, end - c["startET"]), 1),
+                    "best": c["best"],
+                    "avg": round(sum(t) / len(t), 3) if t else None,
+                }
+            )
             self._drv(c["driver"])["stints"] += 1
         self.cur = None
 
@@ -93,9 +108,14 @@ class Endurance:
                 wheels = (d.get("tyres") or {}).get("wheels") or []
                 wear = min((w["wear"] for w in wheels), default=None)
                 rec = {
-                    "lap": laps, "time": lap_time, "driver": self.driver or driver,
-                    "stint": (len(self.stints) + 1), "pit": self.flags["pit"], "neutral": self.flags["neutral"],
-                    "invalid": self.flags["invalid"], "fuel": round(float(e.get("fuel") or 0), 1),
+                    "lap": laps,
+                    "time": lap_time,
+                    "driver": self.driver or driver,
+                    "stint": (len(self.stints) + 1),
+                    "pit": self.flags["pit"],
+                    "neutral": self.flags["neutral"],
+                    "invalid": self.flags["invalid"],
+                    "fuel": round(float(e.get("fuel") or 0), 1),
                     "wear": round(wear * 100) if isinstance(wear, (int, float)) else None,
                 }
                 self.laps.append(rec)
@@ -155,17 +175,27 @@ class Endurance:
             c = self.cur
             if c and (c["laps"] or not stints):
                 t = c["times"]
-                stints.append({
-                    "n": len(self.stints) + 1, "driver": c["driver"], "firstLap": c["startLaps"] + 1, "laps": c["laps"],
-                    "dur": round(max(0.0, (c["endET"] if c["endET"] is not None else et) - c["startET"]), 1),
-                    "best": c["best"], "avg": round(sum(t) / len(t), 3) if t else None, "current": True,
-                })
+                stints.append(
+                    {
+                        "n": len(self.stints) + 1,
+                        "driver": c["driver"],
+                        "firstLap": c["startLaps"] + 1,
+                        "laps": c["laps"],
+                        "dur": round(max(0.0, (c["endET"] if c["endET"] is not None else et) - c["startET"]), 1),
+                        "best": c["best"],
+                        "avg": round(sum(t) / len(t), 3) if t else None,
+                        "current": True,
+                    }
+                )
             drivers = sorted(({"name": k, **v} for k, v in self.drivers.items()), key=lambda x: -x["total"])
             for x in drivers:
                 x["total"] = round(x["total"], 1)
             clean = [r["time"] for r in self.laps if r["time"] and not r["pit"] and not r["neutral"]]
             return {
-                "laps": self.laps[-60:], "totalLaps": len(self.laps), "stints": stints, "drivers": drivers,
+                "laps": self.laps[-60:],
+                "totalLaps": len(self.laps),
+                "stints": stints,
+                "drivers": drivers,
                 "best": min(clean) if clean else None,
                 "avg": round(sum(clean[-10:]) / len(clean[-10:]), 3) if clean else None,
             }
@@ -176,11 +206,35 @@ class Endurance:
         with self.lock:
             buf = io.StringIO()
             w = csv.writer(buf, delimiter=";")
-            w.writerow(["tour", "temps_s", "temps", "pilote", "relais", "stand", "neutralise", "invalide", "carburant_L", "usure_pneu_min_pct"])
+            w.writerow(
+                [
+                    "tour",
+                    "temps_s",
+                    "temps",
+                    "pilote",
+                    "relais",
+                    "stand",
+                    "neutralise",
+                    "invalide",
+                    "carburant_L",
+                    "usure_pneu_min_pct",
+                ]
+            )
             for r in self.laps:
-                w.writerow([r["lap"], f"{r['time']:.3f}".replace(".", ",") if r["time"] else "", fmt_lap(r["time"]),
-                            r["driver"], r["stint"], int(r["pit"]), int(r["neutral"]), int(r["invalid"]),
-                            str(r["fuel"]).replace(".", ","), r["wear"] if r["wear"] is not None else ""])
+                w.writerow(
+                    [
+                        r["lap"],
+                        f"{r['time']:.3f}".replace(".", ",") if r["time"] else "",
+                        fmt_lap(r["time"]),
+                        r["driver"],
+                        r["stint"],
+                        int(r["pit"]),
+                        int(r["neutral"]),
+                        int(r["invalid"]),
+                        str(r["fuel"]).replace(".", ","),
+                        r["wear"] if r["wear"] is not None else "",
+                    ]
+                )
             return buf.getvalue()
 
     def stints_csv(self, et: float = 0.0) -> str:
@@ -189,17 +243,35 @@ class Endurance:
         w = csv.writer(buf, delimiter=";")
         w.writerow(["relais", "pilote", "premier_tour", "tours", "duree_s", "duree", "meilleur", "moyenne"])
         for x in h["stints"]:
-            w.writerow([x["n"], x["driver"], x["firstLap"], x["laps"], x["dur"], fmt_clock(x["dur"]),
-                        fmt_lap(x["best"]), fmt_lap(x["avg"])])
+            w.writerow(
+                [
+                    x["n"],
+                    x["driver"],
+                    x["firstLap"],
+                    x["laps"],
+                    x["dur"],
+                    fmt_clock(x["dur"]),
+                    fmt_lap(x["best"]),
+                    fmt_lap(x["avg"]),
+                ]
+            )
         return buf.getvalue()
 
     # ------------------------------------------------------------------
 
     def to_dict(self) -> dict:
         with self.lock:
-            return {"drivers": self.drivers, "stints": self.stints, "laps": self.laps, "cur": self.cur,
-                    "driver": self.driver, "last_et": self.last_et, "prev_in_pits": self.prev_in_pits,
-                    "prev_laps": self.prev_laps, "flags": self.flags}
+            return {
+                "drivers": self.drivers,
+                "stints": self.stints,
+                "laps": self.laps,
+                "cur": self.cur,
+                "driver": self.driver,
+                "last_et": self.last_et,
+                "prev_in_pits": self.prev_in_pits,
+                "prev_laps": self.prev_laps,
+                "flags": self.flags,
+            }
 
     def from_dict(self, d: dict) -> None:
         with self.lock:

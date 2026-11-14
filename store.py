@@ -1,6 +1,7 @@
 """Persistance sur disque : réglages, cartes de circuit, état de course, archives de sessions.
 Tout est écrit dans un dossier `data/` à côté du programme (ou dans %APPDATA%\\LMU-Dash si ce
 dossier n'est pas inscriptible)."""
+
 from __future__ import annotations
 
 import contextlib
@@ -28,8 +29,10 @@ def resource_dir() -> str:
 
 
 def data_dir(demo: bool = False) -> str:
-    candidates = [os.path.join(app_dir(), "data"),
-                  os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "LMU-Dash")]
+    candidates = [
+        os.path.join(app_dir(), "data"),
+        os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "LMU-Dash"),
+    ]
     for base in candidates:
         try:
             path = os.path.join(base, "demo") if demo else base
@@ -73,19 +76,19 @@ def slug(text: str) -> str:
 ALERT_IDS = ["fuel", "energy", "engine", "tyres", "box", "flags", "damage", "penalty", "rain", "stint"]
 
 DEFAULTS: dict = {
-    "pitLoss": 60.0,           # s, utilisé tant qu'aucun arrêt n'a été mesuré
-    "pitLossAuto": True,       # mesurer le temps perdu aux stands
-    "tyreMin": 25.0,           # % de bande restante considéré comme « pneu fini »
-    "tyreMinByCompound": {},   # {"Soft": 30, ...}
-    "margin": 0.5,             # marge de sécurité en tours
-    "stintMaxMin": 0,          # 0 = pas de limite
+    "pitLoss": 60.0,  # s, utilisé tant qu'aucun arrêt n'a été mesuré
+    "pitLossAuto": True,  # mesurer le temps perdu aux stands
+    "tyreMin": 25.0,  # % de bande restante considéré comme « pneu fini »
+    "tyreMinByCompound": {},  # {"Soft": 30, ...}
+    "margin": 0.5,  # marge de sécurité en tours
+    "stintMaxMin": 0,  # 0 = pas de limite
     "driverMaxMin": 0,
     "sound": False,
     "volume": 0.6,
     "alerts": {k: True for k in ALERT_IDS},
     "classFilter": "ALL",
-    "flagMap": "direct",       # indice de mSectorFlag <-> secteur (appris automatiquement)
-    "tracks": {},              # {"clé circuit": {"rot": 0, "flip": false}}
+    "flagMap": "direct",  # indice de mSectorFlag <-> secteur (appris automatiquement)
+    "tracks": {},  # {"clé circuit": {"rot": 0, "flip": false}}
 }
 
 
@@ -144,8 +147,7 @@ class Settings:
                 if k in ALERT_IDS:
                     d["alerts"][k] = bool(v)
         if isinstance(patch.get("tyreMinByCompound"), dict):  # remplace entièrement (permet de supprimer)
-            d["tyreMinByCompound"] = {str(k)[:40]: _num(v, 5, 70, 25.0)
-                                      for k, v in patch["tyreMinByCompound"].items()}
+            d["tyreMinByCompound"] = {str(k)[:40]: _num(v, 5, 70, 25.0) for k, v in patch["tyreMinByCompound"].items()}
         if isinstance(patch.get("tracks"), dict):
             for k, v in patch["tracks"].items():
                 if isinstance(v, dict):
@@ -194,8 +196,11 @@ def validate_track(o) -> bool:
         for p in pts:
             if p is None:
                 continue
-            if not (isinstance(p, list) and len(p) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool)
-                                                                  and abs(v) < 100000 for v in p)):
+            if not (
+                isinstance(p, list)
+                and len(p) == 2
+                and all(isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) < 100000 for v in p)
+            ):
                 return False
             ok += 1
         if ok < BINS * 0.97:
@@ -227,7 +232,7 @@ class TrackStore:
         self.dirty = False
         self.last_save = 0.0
         self.shared = False
-        self.bsamp: list[list[float]] = [[], []]   # mesures des limites S1/S2 et S2/S3 (fraction du tour)
+        self.bsamp: list[list[float]] = [[], []]  # mesures des limites S1/S2 et S2/S3 (fraction du tour)
         self.prev_sector = 0
 
     def _path(self, key: str) -> str:
@@ -248,13 +253,16 @@ class TrackStore:
             self.pts = [p if (isinstance(p, list) and len(p) == 2) else None for p in saved["pts"]]
             self.filled = sum(1 for p in self.pts if p)
             self.shared = bool(saved.get("shared"))
-            sec = saved.get('sectors')
+            sec = saved.get("sectors")
             if isinstance(sec, list) and len(sec) == 2:
                 self.bsamp = [[float(x)] if isinstance(x, (int, float)) else [] for x in sec]
         self.rev += 1
 
     def _save(self) -> None:
-        write_json(self._path(self.key), {"key": self.key, "pts": self.pts, "sectors": self._bounds(), "shared": self.shared, "saved": time.time()})
+        write_json(
+            self._path(self.key),
+            {"key": self.key, "pts": self.pts, "sectors": self._bounds(), "shared": self.shared, "saved": time.time()},
+        )
         self.dirty = False
         self.last_save = time.monotonic()
 
@@ -265,8 +273,15 @@ class TrackStore:
         tm = payload.get("timing") or {}
         sec = tm.get("sector") or 0
         me = next((r for r in payload.get("standings") or [] if r.get("me")), None)
-        if sec in (1, 2, 3) and self.prev_sector in (1, 2) and sec == self.prev_sector % 3 + 1 and me \
-                and not me.get("inPits") and me.get("d") is not None and 0 <= me["d"] <= length:
+        if (
+            sec in (1, 2, 3)
+            and self.prev_sector in (1, 2)
+            and sec == self.prev_sector % 3 + 1
+            and me
+            and not me.get("inPits")
+            and me.get("d") is not None
+            and 0 <= me["d"] <= length
+        ):
             i = self.prev_sector - 1
             f = me["d"] / length
             cur = self.bsamp[i]
@@ -314,11 +329,24 @@ class TrackStore:
 
     def info(self) -> dict:
         with self.lock:
-            return {"key": self.key, "rev": self.rev, "filled": self.filled, "complete": self.complete, "sectors": self._bounds()}
+            return {
+                "key": self.key,
+                "rev": self.rev,
+                "filled": self.filled,
+                "complete": self.complete,
+                "sectors": self._bounds(),
+            }
 
     def current(self) -> dict:
         with self.lock:
-            return {"key": self.key, "rev": self.rev, "filled": self.filled, "complete": self.complete, "sectors": self._bounds(), "pts": self.pts}
+            return {
+                "key": self.key,
+                "rev": self.rev,
+                "filled": self.filled,
+                "complete": self.complete,
+                "sectors": self._bounds(),
+                "pts": self.pts,
+            }
 
     def reset(self) -> None:
         with self.lock:
@@ -359,8 +387,13 @@ class TrackStore:
             if not n.endswith(".json"):
                 continue
             o = read_json(os.path.join(self.dir, n))
-            if isinstance(o, dict) and not o.get("shared") and validate_track(o) and (o.get("sectors") or [None])[0] \
-                    and all(v is not None for v in o["sectors"]):
+            if (
+                isinstance(o, dict)
+                and not o.get("shared")
+                and validate_track(o)
+                and (o.get("sectors") or [None])[0]
+                and all(v is not None for v in o["sectors"])
+            ):
                 out.append({"key": o["key"], "file": n})
         return out
 
@@ -449,8 +482,15 @@ class Records:
 
     @staticmethod
     def _entry() -> dict:
-        return {"track": "", "car": "", "lap": None, "lapSectors": None, "lapDriver": "", "lapDate": "",
-                "sectors": [None, None, None]}
+        return {
+            "track": "",
+            "car": "",
+            "lap": None,
+            "lapSectors": None,
+            "lapDriver": "",
+            "lapDate": "",
+            "sectors": [None, None, None],
+        }
 
     def update(self, d: dict) -> None:
         s, c, t = d.get("session"), d.get("car"), d.get("timing")
@@ -498,8 +538,15 @@ class Records:
                 return None
             sec = e["sectors"]
             theo = round(sum(sec), 3) if all(sec) else None
-            return {"lap": e["lap"], "lapSectors": e["lapSectors"], "lapDriver": e["lapDriver"], "lapDate": e["lapDate"],
-                    "sectors": sec, "theoretical": theo, "car": e["car"]}
+            return {
+                "lap": e["lap"],
+                "lapSectors": e["lapSectors"],
+                "lapDriver": e["lapDriver"],
+                "lapDate": e["lapDate"],
+                "sectors": sec,
+                "theoretical": theo,
+                "car": e["car"],
+            }
 
     def all(self) -> list:
         with self.lock:
@@ -580,6 +627,7 @@ class Profiles:
 
     def delete(self, name: str) -> bool:
         import shutil
+
         with self.lock:
             if name not in self.names or name == self.active or len(self.names) <= 1:
                 return False

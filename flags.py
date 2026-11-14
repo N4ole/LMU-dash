@@ -1,11 +1,18 @@
 """Suivi des drapeaux : FCY / Safety car, jaunes locaux (avec le bon secteur), voiture arrêtée devant,
 drapeau bleu, rouge. Produit une liste d'« items » unique, utilisée par la bannière ET les alertes."""
+
 from __future__ import annotations
 
 import time
 
-FCY_TEXT = {1: "FCY en préparation", 2: "FCY — stands fermés", 3: "FCY — stands ouverts aux leaders",
-            4: "FCY — stands ouverts", 5: "FCY — dernier tour", 6: "Reprise imminente"}
+FCY_TEXT = {
+    1: "FCY en préparation",
+    2: "FCY — stands fermés",
+    3: "FCY — stands ouverts aux leaders",
+    4: "FCY — stands ouverts",
+    5: "FCY — dernier tour",
+    6: "Reprise imminente",
+}
 
 # Pour chaque secteur S1..S3, l'indice correspondant dans mSectorFlag.
 # Le jeu documente le doute (« not sure if sector 0 is first or last »), donc on l'apprend en roulant.
@@ -19,8 +26,8 @@ def sector_of(frac: float, bounds) -> int | None:
 
 
 class FlagWatch:
-    HAZARD_SPEED = 25      # km/h : en dessous, une voiture en piste est considérée à l'arrêt
-    HAZARD_RANGE = 1500    # m devant nous
+    HAZARD_SPEED = 25  # km/h : en dessous, une voiture en piste est considérée à l'arrêt
+    HAZARD_RANGE = 1500  # m devant nous
 
     def __init__(self, settings) -> None:
         self.settings = settings
@@ -57,7 +64,7 @@ class FlagWatch:
         raw = [bool(x) for x in (s.get("sectorFlags") or [False, False, False])][:3]
         raw += [False] * (3 - len(raw))
         m = MAPS[self.mapping()]
-        local = [raw[m[i]] for i in range(3)]          # indexé S1..S3
+        local = [raw[m[i]] for i in range(3)]  # indexé S1..S3
 
         me = next((r for r in rows if r.get("me")), None)
         my_sec = t.get("sector") or (sector_of(me["d"] / length, bounds) if me and length else None)
@@ -76,28 +83,56 @@ class FlagWatch:
         if phase == 7:
             items.append({"id": "red", "kind": "red", "level": 2, "text": "Drapeau rouge — session arrêtée"})
         elif fcy:
-            items.append({"id": "fcy", "kind": "yellow", "level": 1, "text": FCY_TEXT.get(yellow, "Full course yellow / Safety car")})
+            items.append(
+                {
+                    "id": "fcy",
+                    "kind": "yellow",
+                    "level": 1,
+                    "text": FCY_TEXT.get(yellow, "Full course yellow / Safety car"),
+                }
+            )
         else:
             for i, on in enumerate(local):
                 if not on:
                     continue
                 sec = i + 1
                 if my_sec == sec:
-                    items.append({"id": f"y{sec}", "kind": "yellow", "level": 2, "text": f"Jaune dans TON secteur (S{sec})"})
+                    items.append(
+                        {"id": f"y{sec}", "kind": "yellow", "level": 2, "text": f"Jaune dans TON secteur (S{sec})"}
+                    )
                 elif my_sec and sec == my_sec % 3 + 1:
-                    items.append({"id": f"y{sec}", "kind": "yellow", "level": 1, "text": f"Jaune dans le prochain secteur (S{sec})"})
+                    items.append(
+                        {
+                            "id": f"y{sec}",
+                            "kind": "yellow",
+                            "level": 1,
+                            "text": f"Jaune dans le prochain secteur (S{sec})",
+                        }
+                    )
                 else:
                     items.append({"id": f"y{sec}", "kind": "yellow", "level": 0, "text": f"Jaune secteur S{sec}"})
             if hazards:
                 h = hazards[0]
                 sec = sector_of(h["d"] / length, bounds)
-                items.append({"id": "hazard", "kind": "yellow", "level": 2 if h["ahead"] < 500 else 1,
-                              "text": f"Voiture à l'arrêt à {int(round(h['ahead'], -1))} m" + (f" (S{sec})" if sec else "")})
+                items.append(
+                    {
+                        "id": "hazard",
+                        "kind": "yellow",
+                        "level": 2 if h["ahead"] < 500 else 1,
+                        "text": f"Voiture à l'arrêt à {int(round(h['ahead'], -1))} m" + (f" (S{sec})" if sec else ""),
+                    }
+                )
         if t.get("flag") == 6:
             items.append({"id": "blue", "kind": "blue", "level": 1, "text": "Drapeau bleu — laisse passer"})
         if phase == 8:
             items.append({"id": "over", "kind": "green", "level": 0, "text": "Session terminée"})
         elif phase == 4:
             items.append({"id": "start", "kind": "green", "level": 0, "text": "Départ imminent"})
-        return {"fcy": fcy, "local": local, "mySector": my_sec, "map": self.mapping(),
-                "votes": dict(self.votes), "items": items}
+        return {
+            "fcy": fcy,
+            "local": local,
+            "mySector": my_sec,
+            "map": self.mapping(),
+            "votes": dict(self.votes),
+            "items": items,
+        }

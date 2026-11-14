@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Régénère tracks/index.json à partir des cartes valides."""
+
 import glob
 import json
 import os
