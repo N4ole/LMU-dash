@@ -1,0 +1,35 @@
+name: ✨ Demande de fonction
+description: Propose une amélioration ou une nouvelle fonction.
+title: "[Idée] "
+labels: [amélioration]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Pour une idée encore floue, ouvre plutôt une [Discussion](https://github.com/N4ole/LMU-dash/discussions) (catégorie « Idées »)
+        pour en parler d'abord.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Quel besoin ?
+      description: Dans quelle situation de course cela te manque-t-il ?
+      placeholder: "En endurance, je n'arrive pas à savoir..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Ce que tu proposes
+      description: Ce que tu aimerais voir à l'écran, ou comment cela devrait fonctionner.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: Je suis prêt à proposer une Pull Request pour cette fonction.

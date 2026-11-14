@@ -5,4 +5,7 @@ LMU Dash les télécharge automatiquement : plus besoin de refaire un tour de re
 
 **Contribuer** : dans LMU Dash, ⚙ → « Exporter la carte actuelle » (quand la carte est complète à 100 % et
 que les secteurs sont appris), puis *Add file → Upload files* sur ce dossier et ouvre la Pull Request.
-Une vérification automatique contrôle le fichier ; seuls les fichiers `tracks/*.json` sont acceptés.
+
+Automatiquement, la PR est étiquetée **cartes**, le fichier est validé, et un commentaire affiche un aperçu
+du tracé. Seuls les fichiers `tracks/*.json` sont acceptés ; `index.json` est généré, ne le modifie pas.
+Détails : [CONTRIBUTING.md](../CONTRIBUTING.md#️-partager-une-carte-de-circuit).

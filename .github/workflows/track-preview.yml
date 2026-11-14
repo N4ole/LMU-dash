@@ -1,0 +1,119 @@
+name: Track preview
+
+# Commente chaque PR de cartes avec un aperçu SVG du tracé et le résultat de la validation.
+#
+# SÉCURITÉ — pull_request_target donne un jeton en écriture, y compris pour les PR venant de forks.
+# On n'exécute donc QUE le code de la branche de base (main, de confiance) : les fichiers de la PR sont
+# récupérés comme de simples données (git show), validés par nos scripts, et jamais exécutés.
+# Ne jamais ajouter ici de checkout de la PR, de « pip install » ou de script provenant de la PR.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths: ["tracks/**"]
+
+permissions: {}
+
+concurrency:
+  group: track-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Track preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # pousse les images sur la branche track-previews (jamais sur main)
+      pull-requests: write # commente la PR
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PREVIEW_BRANCH: track-previews
+    steps:
+      - name: Checkout base branch (trusted code only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Fetch PR track files as data
+        id: files
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pr" "$RUNNER_TEMP/preview"
+          git fetch --no-tags --depth=1 origin "+refs/pull/${PR}/head:refs/remotes/pr/head"
+          if [ "$(git rev-parse refs/remotes/pr/head)" != "$HEAD_SHA" ]; then
+            echo "::error::La PR a changé pendant l'exécution, un nouveau passage suivra."
+            exit 1
+          fi
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[] | [.status, .filename] | @tsv' > "$RUNNER_TEMP/files.tsv"
+          deleted=()
+          count=0
+          while IFS=$'\t' read -r status file; do
+            [[ "$file" =~ ^tracks/[A-Za-z0-9._-]+\.json$ ]] || continue
+            [ "$file" = "tracks/index.json" ] && continue
+            if [ "$status" = "removed" ]; then deleted+=("$(basename "$file")"); continue; fi
+            size=$(git cat-file -s "refs/remotes/pr/head:$file")
+            if [ "$size" -gt 200000 ]; then echo "::warning::$file ignoré (trop gros)"; continue; fi
+            git show "refs/remotes/pr/head:$file" > "$RUNNER_TEMP/pr/$(basename "$file")"
+            count=$((count + 1))
+          done < "$RUNNER_TEMP/files.tsv"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "deleted=${deleted[*]:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Build preview
+        if: steps.files.outputs.count != '0' || steps.files.outputs.deleted != ''
+        env:
+          DELETED: ${{ steps.files.outputs.deleted }}
+        run: |
+          url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${PREVIEW_BRANCH}/pr-${PR}/${HEAD_SHA}"
+          # shellcheck disable=SC2086
+          python tools/track_preview.py --input "$RUNNER_TEMP/pr" --out "$RUNNER_TEMP/preview" \
+            --image-url "$url" --deleted $DELETED
+          cat "$RUNNER_TEMP/preview/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish images on the track-previews branch
+        if: steps.files.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          dir="$RUNNER_TEMP/previews-branch"
+          remote="https://github.com/${GITHUB_REPOSITORY}.git"
+          for attempt in 1 2 3; do
+            rm -rf "$dir"
+            if git ls-remote --exit-code --heads "$remote" "$PREVIEW_BRANCH" > /dev/null; then
+              git clone --quiet --depth=1 --branch "$PREVIEW_BRANCH" "$remote" "$dir"
+            else
+              git init --quiet -b "$PREVIEW_BRANCH" "$dir"
+              git -C "$dir" remote add origin "$remote"
+              printf '# Aperçus des PR de cartes\n\nBranche générée automatiquement par track-preview.yml. Ne pas fusionner.\n' > "$dir/README.md"
+            fi
+            mkdir -p "$dir/pr-${PR}/${HEAD_SHA}"
+            cp "$RUNNER_TEMP"/preview/*.svg "$dir/pr-${PR}/${HEAD_SHA}/"
+            git -C "$dir" add -A
+            git -C "$dir" diff --cached --quiet && exit 0
+            git -C "$dir" commit --quiet -m "Aperçu PR #${PR} (${HEAD_SHA:0:7})"
+            git -C "$dir" push --quiet origin "$PREVIEW_BRANCH" && exit 0
+            sleep $((attempt * 3))
+          done
+          echo "::warning::Impossible de publier les images (le commentaire sera quand même posté)."
+
+      - name: Comment on the PR
+        if: steps.files.outputs.count != '0' || steps.files.outputs.deleted != ''
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/preview/report.md"
+          id=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- track-preview -->"))) | .id' | head -n1)
+          if [ -n "$id" ]; then
+            gh api --silent -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -F "body=@${body}"
+          else
+            gh api --silent -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -F "body=@${body}"
+          fi

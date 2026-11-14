@@ -1,0 +1,11 @@
+# Relecteurs demandés automatiquement sur chaque PR.
+# Le dernier motif qui correspond l'emporte.
+
+*               @N4ole
+
+# Cartes partagées : relues par le mainteneur uniquement (pour l'instant).
+/tracks/        @N4ole
+
+# CI, règles du dépôt et outils qui valident les contributions.
+/.github/       @N4ole
+/tools/         @N4ole

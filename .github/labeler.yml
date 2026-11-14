@@ -1,0 +1,15 @@
+# Étiquettes automatiques des PR (actions/labeler). Elles alimentent les catégories des notes de release.
+
+# PR qui ne touchent QUE des cartes (tracks/*.json, hors index généré)
+cartes:
+  - all:
+      - changed-files:
+          - all-globs-to-all-files: ["tracks/*.json", "!tracks/index.json"]
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ["*.md", "docs/**", ".github/*.md", ".github/ISSUE_TEMPLATE/**"]
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/workflows/**", ".github/dependabot.yml", ".pre-commit-config.yaml"]
