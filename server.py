@@ -213,6 +213,10 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=WEB_DIR, **kw)
 
+    def handle(self) -> None:
+        with contextlib.suppress(ConnectionError):  # navigateur qui ferme sa connexion : pas de trace en console
+            super().handle()
+
     def log_message(self, *a):  # silence
         pass
 
