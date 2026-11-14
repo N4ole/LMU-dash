@@ -20,6 +20,8 @@
   /* ---------- barre du haut ---------- */
   header{display:flex;align-items:center;gap:18px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
   .brand{font-weight:800;letter-spacing:.12em;font-size:13px;color:var(--accent)}
+  .upd{font-size:10px;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 7px;text-decoration:none;white-space:nowrap}
+  .upd[hidden]{display:none}
   .dot{width:10px;height:10px;border-radius:50%;background:var(--bad);box-shadow:0 0 8px var(--bad)}
   .dot.ok{background:var(--good);box-shadow:0 0 8px var(--good)}
   .dot.wait{background:var(--warn);box-shadow:0 0 8px var(--warn)}
@@ -249,6 +251,7 @@
 <body>
 <header>
   <span class="dot" id="dot"></span><span class="brand">LMU DASH</span>
+  <a class="upd" id="upd" hidden target="_blank" rel="noopener" title="Une nouvelle version de LMU Dash est disponible"></a>
   <div class="hchip"><small>Circuit</small><b id="h-track">—</b></div>
   <div class="hchip"><small>Session</small><b id="h-sess">—</b></div>
   <div class="hchip"><small>Temps restant</small><b class="num" id="h-rem">—</b></div>
@@ -430,6 +433,7 @@
       <span class="btn" id="s-sync">⟳ Synchroniser les cartes</span>
       <a class="btn" href="/api/export/track.json" download>⬇ Exporter la carte actuelle</a>
       <div class="sub" style="margin-top:8px" id="s-dir">Réglages, cartes et état de course sont sauvegardés automatiquement dans le dossier <b>data</b> à côté du programme. Les sessions terminées sont archivées en CSV dans <b>data/sessions</b>.</div>
+      <div class="sub" style="margin-top:8px" id="s-ver">LMU Dash</div>
     </div>
   </div>
 </div></div>
@@ -906,6 +910,21 @@ async function loadShared(){
 }
 $("s-sync").onclick=async()=>{ await post("/api/shared/sync",{}); $("s-shared").textContent="Synchronisation…"; setTimeout(loadShared,2500); };
 setInterval(loadShared,60000);
+
+// ===================== Version =====================
+async function loadVersion(){
+  try{
+    const v=await (await fetch("/api/version")).json();
+    let t="LMU Dash v"+esc(v.version);
+    const u=$("upd");
+    if(v.update&&v.url){
+      u.textContent="v"+v.latest+" disponible"; u.href=v.url; u.hidden=false;
+      t+=` — <a href="${esc(v.url)}" target="_blank" rel="noopener" style="color:var(--accent)">nouvelle version ${esc(v.latest)} disponible</a>`;
+    } else u.hidden=true;
+    $("s-ver").innerHTML=t;
+  }catch(e){}
+}
+loadVersion(); setTimeout(loadVersion,15000); setInterval(loadVersion,3600000);
 
 // ===================== Son =====================
 let actx=null;

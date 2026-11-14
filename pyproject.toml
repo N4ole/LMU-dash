@@ -1,11 +1,7 @@
 # Configuration des outils de développement uniquement.
 # L'application elle-même n'a AUCUNE dépendance externe (bibliothèque standard Python).
 
-[project]
-name = "lmu-dash"
-description = "Dashboard second écran pour Le Mans Ultimate"
-requires-python = ">=3.10"
-dynamic = ["version"]
+# Version de l'application : version.py (source unique).
 
 [tool.ruff]
 line-length = 120
