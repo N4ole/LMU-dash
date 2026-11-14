@@ -1,0 +1,21 @@
+title: "[Carte] "
+labels: [cartes]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discute ici d'une carte de circuit : demande d'un circuit manquant, variante de tracé, doute sur des secteurs.
+        Pour **proposer** une carte, ouvre directement une Pull Request (voir CONTRIBUTING.md).
+  - type: input
+    id: track
+    attributes:
+      label: Circuit
+      placeholder: Circuit de la Sarthe
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Détails
+    validations:
+      required: true
