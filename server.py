@@ -14,6 +14,7 @@ Usage :
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import queue
@@ -21,6 +22,7 @@ import sys
 import threading
 import time
 import traceback
+import urllib.parse
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -37,7 +39,24 @@ from version import VERSION  # noqa: E402
 WEB_DIR = os.path.join(resource_dir(), "web")
 SEND_HZ = 20  # fréquence d'envoi vers le navigateur
 SAVE_EVERY = 10.0  # sauvegarde de l'état de course (s)
-MAX_BODY = 64 * 1024
+MAX_BODY = 64 * 1024  # taille maximale d'un corps de requête POST
+MAX_STREAMS = 32  # navigateurs connectés en même temps (flux SSE)
+LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "[::1]"})
+# Noms d'hôte acceptés dans l'en-tête Host. Par défaut (écoute sur 127.0.0.1) : uniquement localhost, ce qui
+# bloque le « DNS rebinding » (un site web qui ferait pointer son nom de domaine vers 127.0.0.1 pour lire l'API).
+# None = tout accepter (--host 0.0.0.0 ou une IP du réseau : l'accès se fait par l'IP ou le nom du PC).
+ALLOWED_HOSTS: frozenset[str] | None = LOCAL_HOSTS
+
+
+def host_name(value: str) -> str:
+    """« LocalHost:8765 » -> « localhost », « [::1]:8765 » -> « [::1] »."""
+    v = (value or "").strip().lower()
+    if v.startswith("["):
+        end = v.find("]")
+        return v[: end + 1] if end > 0 else v
+    if v.count(":") == 1:
+        v = v.split(":", 1)[0]
+    return v.rstrip(".")
 
 
 # --------------------------------------------------------------------------
@@ -168,9 +187,11 @@ class Hub:
                     except queue.Empty:
                         pass
 
-    def add(self) -> queue.Queue:
+    def add(self) -> queue.Queue | None:
         q: queue.Queue = queue.Queue(maxsize=4)
         with self.lock:
+            if len(self.clients) >= MAX_STREAMS:
+                return None
             self.clients.add(q)
         return q
 
@@ -187,6 +208,8 @@ SETTINGS: Settings | None = None
 
 
 class Handler(SimpleHTTPRequestHandler):
+    timeout = 60  # s : ferme les connexions qui n'envoient rien (requêtes volontairement lentes)
+
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=WEB_DIR, **kw)
 
@@ -195,7 +218,31 @@ class Handler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
         super().end_headers()
+
+    # ---- contrôles communs à toutes les requêtes ----
+    def parse_request(self) -> bool:
+        if not super().parse_request():
+            return False
+        host = self.headers.get("Host")
+        if ALLOWED_HOSTS is not None and host is not None and host_name(host) not in ALLOWED_HOSTS:
+            self.send_error(403, "Hôte non autorisé")
+            return False
+        return True
+
+    def _same_origin(self) -> bool:
+        """Les navigateurs envoient Origin sur les POST : il doit correspondre à l'adresse du dashboard."""
+        origin = self.headers.get("Origin")
+        if origin is None:
+            return True  # outil en ligne de commande (curl...), pas un site web
+        netloc = urllib.parse.urlsplit(origin).netloc.lower()
+        return bool(netloc) and netloc == (self.headers.get("Host") or "").strip().lower()
+
+    def list_directory(self, path):  # pas de listing des dossiers
+        self.send_error(404, "Introuvable")
+        return None
 
     # ---- helpers ----
     def _send(self, body: bytes, ctype: str, status: int = 200, extra: dict | None = None) -> None:
@@ -212,18 +259,45 @@ class Handler(SimpleHTTPRequestHandler):
             json.dumps(obj, separators=(",", ":"), allow_nan=False, default=str).encode(), "application/json", status
         )
 
-    def _body_json(self) -> dict | None:
-        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
-        if ctype != "application/json":  # force un preflight CORS : bloque les POST venus d'autres sites
-            return None
+    def _read_body(self) -> tuple[bytes | None, int]:
+        """Lit le corps de la requête (toujours, même si elle sera refusée, pour répondre proprement)."""
+        if self.headers.get("Transfer-Encoding"):  # pas de corps « chunked » : longueur obligatoire
+            self.close_connection = True
+            return None, 411
         try:
             n = int(self.headers.get("Content-Length") or 0)
-            if n > MAX_BODY:
-                return None
-            data = json.loads(self.rfile.read(n) or b"{}")
-            return data if isinstance(data, dict) else None
-        except (ValueError, OSError):
-            return None
+        except ValueError:
+            n = -1
+        if n < 0:  # rfile.read(-1) attendrait la fermeture de la connexion
+            self.close_connection = True
+            return None, 400
+        if n > MAX_BODY:
+            self.close_connection = True
+            if n <= 16 * MAX_BODY:  # on vide le corps pour que le client reçoive bien la réponse 413
+                with contextlib.suppress(OSError):
+                    self.rfile.read(n)
+            return None, 413
+        try:
+            return self.rfile.read(n), 200
+        except OSError:
+            self.close_connection = True
+            return None, 400
+
+    def _body_json(self) -> tuple[dict | None, int]:
+        """(corps JSON, statut HTTP). Le corps est None si la requête doit être refusée."""
+        raw, status = self._read_body()
+        if raw is None:
+            return None, status
+        if not self._same_origin():
+            return None, 403
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":  # force un preflight CORS : bloque les POST venus d'autres sites
+            return None, 415
+        try:
+            data = json.loads(raw or b"{}")
+        except ValueError:
+            return None, 400
+        return (data, 200) if isinstance(data, dict) else (None, 400)
 
     def _csv(self, text: str, name: str) -> None:
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -272,11 +346,13 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def _stream(self) -> None:
+        q = HUB.add()
+        if q is None:
+            return self._json({"error": "trop de connexions"}, 503)
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Connection", "keep-alive")
         self.end_headers()
-        q = HUB.add()
         try:
             self.wfile.write(f"data: {HUB.latest}\n\n".encode())
             self.wfile.flush()
@@ -295,9 +371,10 @@ class Handler(SimpleHTTPRequestHandler):
     # ---- POST ----
     def do_POST(self):
         path = self.path.split("?", 1)[0]
-        body = self._body_json()
+        body, status = self._body_json()
         if body is None:
-            return self._json({"error": "requête invalide (JSON attendu)"}, 400)
+            msg = "origine non autorisée" if status == 403 else "requête invalide (JSON attendu)"
+            return self._json({"error": msg}, status)
         if path == "/api/settings":
             return self._json(SETTINGS.update(body))
         if path == "/api/trackmap/reset":
@@ -344,7 +421,7 @@ def producer(engine: Engine) -> None:
 
 
 def main() -> None:
-    global ENGINE, SETTINGS, SHARED, UPDATES
+    global ENGINE, SETTINGS, SHARED, UPDATES, ALLOWED_HOSTS
     ap = argparse.ArgumentParser(description="LMU Dash - dashboard second écran pour Le Mans Ultimate")
     ap.add_argument("--version", action="version", version=f"LMU Dash {VERSION}")
     ap.add_argument("--demo", action="store_true", help="données simulées (sans le jeu)")
@@ -387,6 +464,7 @@ def main() -> None:
     SHARED = Shared(args.shared_repo, ENGINE.tracks, enabled=not args.no_sync and not args.demo)
     UPDATES = UpdateCheck(DEFAULT_REPO, enabled=not args.no_sync and not args.demo)
 
+    ALLOWED_HOSTS = LOCAL_HOSTS if host_name(args.host) in ("localhost", "127.0.0.1", "::1", "[::1]") else None
     shown = "localhost" if args.host in ("127.0.0.1", "0.0.0.0") else args.host
     url = f"http://{shown}:{args.port}"
     try:
@@ -405,6 +483,8 @@ def main() -> None:
     print(f"Données sauvegardées dans : {folder}  (joueur : {profiles.active})")
     if args.host == "0.0.0.0":
         print(f"Accessible depuis ton réseau local avec l'IP de ce PC (ex: http://192.168.x.x:{args.port})")
+    if ALLOWED_HOSTS is None:
+        print("Attention : pas de mot de passe. N'utilise --host que sur un réseau de confiance (pas en Wi-Fi public).")
     print("Ctrl+C pour arrêter.")
     if not args.no_browser:
         threading.Timer(0.8, webbrowser.open, [url]).start()
