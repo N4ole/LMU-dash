@@ -50,6 +50,8 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m pytest
+      - name: Smoke test (server --demo)
+        run: python tools/smoke_test.py
 
   tracks:
     name: Validate tracks

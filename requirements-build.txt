@@ -1,0 +1,2 @@
+# Construction de LMU-Dash.exe uniquement (voir tools/build_exe.py). Version épinglée, mise à jour par Dependabot.
+pyinstaller==6.22.3
