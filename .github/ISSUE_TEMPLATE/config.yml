@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Question, idée ou discussion
+    url: https://github.com/N4ole/LMU-dash/discussions
+    about: Pour une question d'utilisation ou une idée à discuter, passe par les Discussions.
+  - name: 🔒 Signaler une faille de sécurité
+    url: https://github.com/N4ole/LMU-dash/security/advisories/new
+    about: Jamais dans une issue publique — utilise le signalement privé (voir SECURITY.md).

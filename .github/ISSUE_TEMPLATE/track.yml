@@ -1,0 +1,44 @@
+name: 🗺️ Problème de carte
+description: Un tracé ou des secteurs faux, une carte manquante ou en double.
+title: "[Carte] "
+labels: [cartes]
+body:
+  - type: input
+    id: track
+    attributes:
+      label: Circuit
+      description: Le nom exact affiché dans LMU Dash (en haut, « Circuit »).
+      placeholder: Circuit de la Sarthe
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type de problème
+      options:
+        - Tracé faux ou déformé
+        - Limites de secteurs décalées
+        - Carte manquante (je ne peux pas l'exporter moi-même)
+        - Carte en double / mauvais nom de fichier
+        - Autre
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Détails
+      description: Que vois-tu ? Une capture d'écran de la carte dans LMU Dash est idéale.
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: Ta carte (facultatif)
+      description: |
+        Si ta carte est correcte, joins le fichier exporté (⚙ → « Exporter la carte actuelle ») en le glissant
+        ici, ou mieux : propose-la directement en Pull Request (voir CONTRIBUTING.md).
+  - type: input
+    id: version
+    attributes:
+      label: Version de LMU Dash
+      placeholder: "1.0.0"

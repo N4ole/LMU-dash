@@ -1,0 +1,84 @@
+name: 🐛 Bug
+description: Quelque chose ne marche pas comme prévu dans LMU Dash.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de prendre le temps de signaler un problème ! Vérifie d'abord qu'il n'existe pas déjà une
+        [issue similaire](https://github.com/N4ole/LMU-dash/issues?q=is%3Aissue).
+  - type: input
+    id: version
+    attributes:
+      label: Version de LMU Dash
+      description: Affichée dans ⚙ Réglages (en bas), ou `LMU-Dash.exe --version`.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Comment lances-tu LMU Dash ?
+      options:
+        - LMU-Dash.exe
+        - Python (server.py / lancer.bat)
+        - Mode démo (--demo)
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Partie concernée
+      multiple: true
+      options:
+        - Démarrage / installation
+        - Stratégie (carburant, énergie, pneus, arrêts)
+        - Endurance (relais, pilotes, CSV)
+        - Drapeaux / alertes / son
+        - Carte du circuit / secteurs
+        - Chronos / records
+        - Profils
+        - Affichage / interface
+        - Accès depuis une tablette (--host)
+        - Autre
+  - type: textarea
+    id: what
+    attributes:
+      label: Que se passe-t-il ?
+      description: Décris le problème. Une capture d'écran aide beaucoup.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Comment le reproduire ?
+      placeholder: |
+        1. Circuit, voiture, type de session (course, qualif...)
+        2. Ce que tu as fait
+        3. Ce qui s'affiche
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ce que tu attendais
+  - type: textarea
+    id: logs
+    attributes:
+      label: Messages de la console
+      description: Le texte affiché dans la fenêtre noire de LMU Dash, s'il y en a.
+      render: text
+  - type: input
+    id: os
+    attributes:
+      label: Système
+      placeholder: Windows 11, navigateur Chrome / Edge / Firefox, tablette...
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Vérifications
+      options:
+        - label: J'ai la dernière version (ou je l'ai indiquée ci-dessus).
+          required: true
+        - label: Dans LMU, « Enable Plugins » est activé (Settings → Gameplay), si le problème concerne le jeu.
