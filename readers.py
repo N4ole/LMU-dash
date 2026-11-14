@@ -7,8 +7,8 @@ import mmap
 import sys
 import time
 
-from strategy import RaceStats, compute_strategy, remaining_laps
 from store import Settings
+from strategy import RaceStats, compute_strategy, remaining_laps
 
 # --------------------------------------------------------------------------
 # Utilitaires
@@ -446,7 +446,8 @@ class DemoReader:
         throttle = max(0.0, min(1.0, 0.5 + accel * 1.5))
         brake = max(0.0, min(1.0, -accel * 1.5 - 0.6))
 
-        wear_val = lambda i: max(0.0, 1 - (self.laps_done - self.tyre_lap0) * 0.012 - i * 0.004)
+        def wear_val(i: int) -> float:
+            return max(0.0, 1 - (self.laps_done - self.tyre_lap0) * 0.012 - i * 0.004)
 
         def tyre(base: float, i: int) -> dict:
             return {

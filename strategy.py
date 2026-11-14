@@ -77,7 +77,7 @@ class RaceStats:
         if neutral:
             self.dirty = True
         # pneus neufs : l'usure restante remonte nettement
-        if self.start_wear and any(w - s > 0.1 for w, s in zip(wear, self.start_wear)):
+        if self.start_wear and any(w - s > 0.1 for w, s in zip(wear, self.start_wear, strict=False)):
             self.wear_hist = []
             self.start_wear = list(wear)
             self.stint_start = laps
@@ -99,7 +99,7 @@ class RaceStats:
             if 0.0005 < used_e < 0.5:
                 self.energy_hist = (self.energy_hist + [used_e])[-self.KEEP:]
             if self.start_wear and len(self.start_wear) == len(wear):
-                worst = max(s - w for w, s in zip(wear, self.start_wear))
+                worst = max(s - w for w, s in zip(wear, self.start_wear, strict=False))
                 if 0.0005 < worst < 0.2:
                     self.wear_hist = (self.wear_hist + [worst])[-self.KEEP:]
             self._close_pit_window(t)

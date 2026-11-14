@@ -63,7 +63,7 @@ def main() -> int:
     if a.dry_run:
         return 0
 
-    for key, p, target, out in added:
+    for _key, _p, target, out in added:
         with open(target, "w", encoding="utf-8") as f:
             json.dump(out, f, separators=(",", ":"))
     # index + validation
@@ -79,7 +79,7 @@ def main() -> int:
         print(c.stdout + c.stderr)
         return 1
     # ces cartes sont maintenant « partagées » : plus de rappel dans l'app
-    for key, p, target, out in added:
+    for _key, p, _target, _out in added:
         o = read_json(p) or {}
         o["shared"] = True
         write_json(p, o)

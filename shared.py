@@ -13,8 +13,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from store import validate_track
-
 DEFAULT_REPO = "N4ole/lmu-dash"
 BRANCH = "main"
 MAX_BYTES = 200_000

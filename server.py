@@ -372,7 +372,7 @@ def main() -> None:
     print(f"LMU Dash {'(DEMO) ' if args.demo else ''}prêt -> {url}")
     print(f"Données sauvegardées dans : {folder}  (joueur : {profiles.active})")
     if args.host == "0.0.0.0":
-        print("Accessible depuis ton réseau local avec l'IP de ce PC (ex: http://192.168.x.x:%d)" % args.port)
+        print(f"Accessible depuis ton réseau local avec l'IP de ce PC (ex: http://192.168.x.x:{args.port})")
     print("Ctrl+C pour arrêter.")
     if not args.no_browser:
         threading.Timer(0.8, webbrowser.open, [url]).start()

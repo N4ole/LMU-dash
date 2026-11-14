@@ -3,6 +3,7 @@ Tout est écrit dans un dossier `data/` à côté du programme (ou dans %APPDATA
 dossier n'est pas inscriptible)."""
 from __future__ import annotations
 
+import contextlib
 import copy
 import json
 import os
@@ -323,10 +324,8 @@ class TrackStore:
         with self.lock:
             self.pts, self.filled, self.dirty = [None] * BINS, 0, False
             self.rev += 1
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(self._path(self.key))
-            except OSError:
-                pass
 
     def adopt(self, obj: dict) -> bool:
         """Intègre une carte partagée (validée) si elle apporte quelque chose de plus que la nôtre."""
@@ -373,7 +372,7 @@ class TrackStore:
                 o = {"key": k, "pts": self.pts, "sectors": self._bounds()}
             if not isinstance(o, dict):
                 return None
-            return {"v": 1, "key": o["key"] if "key" in o else k, "pts": o["pts"], "sectors": o.get("sectors")}
+            return {"v": 1, "key": o.get("key", k), "pts": o["pts"], "sectors": o.get("sectors")}
 
     def flush(self) -> None:
         with self.lock:
@@ -543,10 +542,8 @@ class Profiles:
         for n in self.MOVE:
             src = os.path.join(self.root, n)
             if os.path.exists(src):
-                try:
+                with contextlib.suppress(OSError):
                     os.replace(src, os.path.join(dst, n))
-                except OSError:
-                    pass
 
     def _save(self) -> None:
         write_json(self.meta, {"active": self.active, "profiles": self.names})
