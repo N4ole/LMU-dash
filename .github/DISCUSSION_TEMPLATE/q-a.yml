@@ -1,0 +1,17 @@
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Ta question
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version de LMU Dash
+      description: Affichée dans ⚙ Réglages, ou `LMU-Dash.exe --version`.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Lancement
+      options: [LMU-Dash.exe, Python (server.py), Mode démo]

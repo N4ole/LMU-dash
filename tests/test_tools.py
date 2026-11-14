@@ -132,3 +132,34 @@ def test_safe_text(text):
     out = track_preview.safe_text(text)
     for bad in "<>[]@\n|":
         assert bad not in out
+
+
+# ---------------------------------------------------------------- site GitHub Pages
+
+
+def test_build_site(tmp_path):
+    import build_site
+
+    tracks = tmp_path / "tracks"
+    tracks.mkdir()
+    write(tracks, "Spa.json", circle_track("Spa <b>"))
+    write(tracks, "Bad.json", {"key": "Bad"})
+    index = {
+        "v": 1,
+        "tracks": [{"key": "Spa", "file": "Spa.json"}, {"key": "x", "file": "../../etc"}, {"file": "Bad.json"}],
+    }
+    write(tracks, "index.json", index)
+    out = tmp_path / "site"
+    assert build_site.build(str(out), tracks_dir=str(tracks)) == 1
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert "1 circuit(s) disponible(s)" in html
+    assert "Spa &lt;b&gt;" in html and "<!-- TRACKS -->" not in html
+    assert (out / "tracks" / "Spa_b.svg").exists()
+    assert (out / "screenshot.png").exists() and (out / ".nojekyll").exists()
+
+
+def test_build_site_without_tracks(tmp_path):
+    import build_site
+
+    assert build_site.build(str(tmp_path / "site"), tracks_dir=str(tmp_path)) == 0
+    assert "Aucun circuit partagé" in (tmp_path / "site" / "index.html").read_text(encoding="utf-8")

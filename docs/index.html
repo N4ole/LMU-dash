@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LMU Dash — dashboard second écran pour Le Mans Ultimate</title>
+<meta name="description" content="Dashboard second écran gratuit et open source pour Le Mans Ultimate : stratégie carburant et énergie, endurance, drapeaux, carte du circuit en direct.">
+<meta property="og:title" content="LMU Dash">
+<meta property="og:description" content="Dashboard second écran pour Le Mans Ultimate : stratégie, endurance, drapeaux et carte du circuit en direct.">
+<meta property="og:image" content="screenshot.png">
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#13171c; --panel2:#181d24; --line:#232a33;
+    --text:#e8edf2; --dim:#8b97a5; --accent:#ff7a1a;
+    --good:#32d27b; --cold:#4aa8ff; --purple:#b46bff;
+    --sans:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 var(--sans)}
+  a{color:var(--accent)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+  header.top{display:flex;align-items:center;gap:16px;padding:18px 0}
+  .brand{font-weight:800;letter-spacing:.14em;color:var(--accent);font-size:15px}
+  header.top nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+  header.top nav a{color:var(--dim);text-decoration:none;font-size:14px}
+  header.top nav a:hover{color:var(--text)}
+  .hero{padding:48px 0 28px;text-align:center}
+  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.1;margin:0 0 14px;letter-spacing:-.01em}
+  .hero h1 em{font-style:normal;color:var(--accent)}
+  .hero p{color:var(--dim);font-size:clamp(16px,2vw,19px);max-width:680px;margin:0 auto 26px}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:10px;font-weight:700;text-decoration:none;border:1px solid var(--line);color:var(--text);background:var(--panel2)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#111}
+  .btn:hover{filter:brightness(1.1)}
+  .meta{margin-top:14px;font-size:13px;color:var(--dim)}
+  .shot{margin:34px 0 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px #0008}
+  .shot img{display:block;width:100%;height:auto}
+  section{padding:56px 0 8px}
+  h2{font-size:26px;margin:0 0 8px}
+  .lead{color:var(--dim);margin:0 0 26px}
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;counter-reset:s}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px}
+  .step::before{counter-increment:s;content:counter(s);display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#111;font-weight:800;margin-bottom:10px}
+  .step b{display:block;margin-bottom:4px}
+  .step span{color:var(--dim);font-size:14px}
+  code{font-family:var(--mono);font-size:.9em;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h3{margin:0 0 6px;font-size:16px}
+  .card p{margin:0;color:var(--dim);font-size:14px}
+  .tracks{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+  .track{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center}
+  .track img{width:100%;height:auto;display:block;border-radius:8px}
+  .track span{display:block;font-size:13px;margin:6px 2px 2px;overflow-wrap:anywhere}
+  .empty{background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:22px;color:var(--dim)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--dim);margin:-12px 0 18px}
+  .legend i{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+  footer{margin-top:64px;border-top:1px solid var(--line);padding:24px 0 40px;color:var(--dim);font-size:13px}
+  footer a{color:var(--dim)}
+  @media (max-width:640px){ header.top nav{display:none} .hero{padding-top:24px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="brand">LMU DASH</span>
+    <nav>
+      <a href="#installation">Installation</a>
+      <a href="#fonctions">Fonctions</a>
+      <a href="#circuits">Circuits</a>
+      <a href="#contribuer">Contribuer</a>
+      <a href="https://github.com/N4ole/LMU-dash">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Ton ingénieur de course<br>sur un <em>second écran</em></h1>
+    <p>LMU Dash lit la télémétrie officielle de Le Mans Ultimate et affiche, en direct dans ton navigateur,
+      la stratégie carburant et énergie, les relais d'endurance, les drapeaux et la carte du circuit.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/N4ole/LMU-dash/releases/latest/download/LMU-Dash.exe">⬇ Télécharger pour Windows</a>
+      <a class="btn" href="https://github.com/N4ole/LMU-dash">Code source</a>
+    </div>
+    <div class="meta">Gratuit · open source (MIT) · aucune installation · rien n'est envoyé sur Internet</div>
+    <div class="shot"><img src="screenshot.png" width="1920" height="1080" alt="Le dashboard LMU Dash pendant une course : pilotage, chronos, carburant, carte du circuit, pneus, stratégie et classement"></div>
+  </div>
+
+  <section id="installation">
+    <h2>Installation en 3 étapes</h2>
+    <p class="lead">Aucun prérequis : un seul fichier, à lancer sur le PC du jeu.</p>
+    <div class="steps">
+      <div class="step"><b>Télécharge LMU-Dash.exe</b><span>Depuis la <a href="https://github.com/N4ole/LMU-dash/releases/latest">dernière version</a>. SHA256 et attestation de provenance fournis.</span></div>
+      <div class="step"><b>Active les plugins dans LMU</b><span><code>Settings → Gameplay → Enable Plugins</code>, puis relance le jeu.</span></div>
+      <div class="step"><b>Lance-le</b><span>Le navigateur s'ouvre sur <code>localhost:8765</code>. Glisse la page sur ton 2ᵉ écran, F11.</span></div>
+    </div>
+  </section>
+
+  <section id="fonctions">
+    <h2>Fonctions</h2>
+    <p class="lead">Tout ce qu'il faut pour une course d'endurance, sans quitter la piste des yeux plus d'une seconde.</p>
+    <div class="grid">
+      <div class="card"><h3>🧠 Stratégie</h3><p>Ressource limitante (carburant, énergie virtuelle, pneus), prochain arrêt, arrêts pour finir, quantités à ajouter, économie suggérée.</p></div>
+      <div class="card"><h3>⏱️ Temps perdu aux stands</h3><p>Mesuré automatiquement à chaque arrêt ; les tours sous Safety Car ou FCY sont exclus des moyennes.</p></div>
+      <div class="card"><h3>🏁 Endurance</h3><p>Relais, temps cumulé par pilote avec limites, historique des tours, export CSV.</p></div>
+      <div class="card"><h3>🚩 Drapeaux</h3><p>FCY, Safety car, jaune dans ton secteur ou le suivant, voiture arrêtée devant toi avec sa distance.</p></div>
+      <div class="card"><h3>🗺️ Carte en direct</h3><p>Tracé appris tout seul, toutes les voitures, secteurs colorés, zones jaunes qui clignotent.</p></div>
+      <div class="card"><h3>🔔 Alertes</h3><p>Bandeau, halo et bips : carburant, pneus, surchauffe, BOX, dégâts, pluie — chacune réglable.</p></div>
+      <div class="card"><h3>🏆 Records</h3><p>Meilleur tour et meilleurs secteurs par circuit et voiture, toutes sessions, tour théorique.</p></div>
+      <div class="card"><h3>📱 Tablette</h3><p>Affiche le dashboard sur une tablette ou un 2ᵉ PC du réseau local.</p></div>
+    </div>
+  </section>
+
+  <section id="circuits">
+    <h2>Circuits partagés</h2>
+    <p class="lead">Cartes publiées par la communauté, téléchargées automatiquement au lancement : plus de tour de repérage.</p>
+    <div class="legend"><span><i style="background:var(--cold)"></i>S1</span><span><i style="background:var(--purple)"></i>S2</span><span><i style="background:var(--good)"></i>S3</span></div>
+    <!-- TRACKS -->
+    <div class="empty">La liste des circuits est générée lors de la publication du site.</div>
+    <!-- /TRACKS -->
+  </section>
+
+  <section id="contribuer">
+    <h2>Contribuer</h2>
+    <p class="lead">Tu as roulé sur un circuit qui manque ? Partage sa carte en deux minutes, sans rien installer.</p>
+    <div class="grid">
+      <div class="card"><h3>🗺️ Une carte</h3><p>⚙ → « Exporter la carte actuelle », puis dépose le fichier sur GitHub. Un aperçu du tracé est généré automatiquement. <a href="https://github.com/N4ole/LMU-dash/blob/main/CONTRIBUTING.md">Mode d'emploi</a>.</p></div>
+      <div class="card"><h3>💬 Une idée, une question</h3><p>Passe par les <a href="https://github.com/N4ole/LMU-dash/discussions">Discussions</a>.</p></div>
+      <div class="card"><h3>🐛 Un bug</h3><p>Ouvre une <a href="https://github.com/N4ole/LMU-dash/issues/new/choose">issue</a> avec ta version et ce qui s'est passé.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    LMU Dash est un projet communautaire non officiel, sans lien avec les éditeurs de Le Mans Ultimate. ·
+    <a href="https://github.com/N4ole/LMU-dash/blob/main/LICENSE">Licence MIT</a> ·
+    <a href="https://github.com/N4ole/LMU-dash/blob/main/CHANGELOG.md">Nouveautés</a> ·
+    <a href="https://github.com/N4ole/LMU-dash/blob/main/SECURITY.md">Sécurité</a>
+  </footer>
+</div>
+</body>
+</html>

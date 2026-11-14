@@ -1,0 +1,14 @@
+title: "[Idée] "
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Ton idée
+      description: Quel besoin en course ? Qu'aimerais-tu voir à l'écran ?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte
+      description: Type de course (sprint, endurance, multi-pilotes), classe, captures d'autres outils...
