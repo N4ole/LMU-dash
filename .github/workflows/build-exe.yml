@@ -1,0 +1,23 @@
+name: Build LMU-Dash.exe
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pyinstaller
+      - run: >
+          python -m PyInstaller --noconfirm --clean --onefile --name LMU-Dash
+          --add-data "web;web"
+          --hidden-import readers --hidden-import strategy --hidden-import endurance --hidden-import store --hidden-import flags --hidden-import shared --hidden-import pyLMUSharedMemory.lmu_data
+          server.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LMU-Dash
+          path: dist/LMU-Dash.exe

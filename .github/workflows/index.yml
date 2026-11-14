@@ -1,0 +1,18 @@
+name: Index des cartes
+on:
+  push:
+    branches: [main]
+    paths: ["tracks/*.json"]
+permissions:
+  contents: write
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python tools/validate_tracks.py && python tools/build_index.py
+      - run: |
+          git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"
+          git add tracks/index.json; git diff --cached --quiet || (git commit -m "Mise à jour de l'index des cartes" && git push)
