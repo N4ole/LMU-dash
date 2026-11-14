@@ -8,4 +8,4 @@ que les secteurs sont appris), puis *Add file → Upload files* sur ce dossier e
 
 Automatiquement, la PR est étiquetée **cartes**, le fichier est validé, et un commentaire affiche un aperçu
 du tracé. Seuls les fichiers `tracks/*.json` sont acceptés ; `index.json` est généré, ne le modifie pas.
-Détails : [CONTRIBUTING.md](../CONTRIBUTING.md#️-partager-une-carte-de-circuit).
+Format : [`schema.json`](schema.json) (JSON Schema). Détails : [CONTRIBUTING.md](../CONTRIBUTING.md#️-partager-une-carte-de-circuit).

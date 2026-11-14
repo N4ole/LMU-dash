@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/N4ole/LMU-dash/blob/main/tracks/schema.json",
+  "title": "Carte de circuit LMU Dash",
+  "description": "Fichier tracks/<circuit>.json, tel que produit par « Exporter la carte actuelle ». Les règles qu'un schéma ne peut pas exprimer (≥ 97 % de points, secteurs croissants, géométrie plausible, nom de fichier, doublons) sont vérifiées par tools/validate_tracks.py --strict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "key", "pts", "sectors"],
+  "properties": {
+    "v": {
+      "description": "Version du format.",
+      "const": 1
+    },
+    "key": {
+      "description": "Nom du circuit tel que fourni par le jeu.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "pts": {
+      "description": "360 positions [x, z] en mètres, une par degré de tour (null si non apprise).",
+      "type": "array",
+      "minItems": 360,
+      "maxItems": 360,
+      "items": {
+        "oneOf": [
+          { "type": "null" },
+          {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "number", "exclusiveMinimum": -100000, "exclusiveMaximum": 100000 }
+          }
+        ]
+      }
+    },
+    "sectors": {
+      "description": "Limites S1/S2 et S2/S3 en fraction du tour.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number", "exclusiveMinimum": 0.02, "exclusiveMaximum": 0.98 }
+    }
+  }
+}

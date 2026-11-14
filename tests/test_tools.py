@@ -89,9 +89,9 @@ def test_preview_report(tmp_path):
     pr.mkdir()
     base = tmp_path / "base"
     base.mkdir()
-    write(base, "Monza.json", circle_track("Monza"))
+    write(base, "Monza.json", circle_track("Monza", radius=600))
     write(pr, "Spa.json", circle_track("Spa"))
-    write(pr, "Monza.json", circle_track("Monza"))
+    write(pr, "Monza.json", circle_track("Monza", radius=650))  # mise à jour du tracé
     write(pr, "Bad.json", circle_track("@everyone `rm -rf` <script>"))
     out = tmp_path / "out"
     rc = track_preview.main(
@@ -120,6 +120,15 @@ def test_preview_report(tmp_path):
     # aucun texte venant de la PR ne peut injecter de HTML, de mention ou casser le Markdown
     assert "<script>" not in md and "@everyone" not in md and "`rm" not in md
     assert sorted(os.listdir(out)) == ["Bad.svg", "Monza.svg", "Spa.svg", "report.md"]
+    assert "Longueur de la boucle : 3.15 km" in md
+
+
+def test_preview_flags_resubmitted_identical_track(tmp_path):
+    base = tmp_path / "base"
+    base.mkdir()
+    write(base, "Spa.json", circle_track("Spa"))
+    info = track_preview.describe(write(tmp_path, "Spa.json", circle_track("Spa")), str(base))
+    assert info["existing"] and info["errors"] == ["doublon exact de Spa.json"]
 
 
 def test_preview_rejects_strange_file_names(tmp_path):
@@ -163,3 +172,124 @@ def test_build_site_without_tracks(tmp_path):
 
     assert build_site.build(str(tmp_path / "site"), tracks_dir=str(tmp_path)) == 0
     assert "Aucun circuit partagé" in (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- validation stricte et schéma
+
+
+def demo_track():
+    from readers import DemoReader
+
+    pts = [[round(v) for v in DemoReader.track_xy(i / 360)] for i in range(360)]
+    return {"v": 1, "key": "Circuit de la Sarthe", "pts": pts, "sectors": [0.31, 0.68]}
+
+
+@pytest.mark.parametrize("track", [circle_track("Spa"), circle_track("Spa", missing=10), demo_track()])
+def test_strict_accepts_real_tracks(tmp_path, track):
+    from store import slug
+
+    path = write(tmp_path, slug(track["key"]) + ".json", track)
+    assert validate_tracks.check_file(path, strict=True, schema=True) == []
+
+
+def broken(**changes):
+    o = circle_track("Spa")
+    o.update(changes)
+    return o
+
+
+def spike():
+    o = circle_track("Spa")
+    o["pts"][100] = [5000, 5000]
+    return o
+
+
+@pytest.mark.parametrize(
+    "track,expected",
+    [
+        (broken(shared=True), "champs inattendus : shared"),
+        (broken(v=2), "version de format"),
+        (circle_track("Spa", radius=100), "longueur de boucle peu plausible : 0.6 km"),
+        (circle_track("Spa", radius=6000), "longueur de boucle peu plausible : 37.7 km"),
+        (spike(), "point(s) aberrant(s)"),
+        (circle_track("Spa", sectors=(0.03, 0.5)), "secteur trop court (3.0 %"),
+        (circle_track("Spa", sectors=(0.5, 0.97)), "secteur trop court (3.0 %"),
+    ],
+)
+def test_strict_rejects(tmp_path, track, expected):
+    path = write(tmp_path, "Spa.json", track)
+    assert validate_tracks.check_file(path) == []  # l'application l'accepterait...
+    errors = validate_tracks.check_file(path, strict=True)
+    assert any(expected in e for e in errors), errors  # ... mais pas le dépôt
+
+
+def test_strict_detects_exact_duplicate(tmp_path):
+    a = write(tmp_path, "Spa.json", circle_track("Spa"))
+    b = write(tmp_path, "Spa_2024.json", circle_track("Spa 2024"))  # même tracé, autre nom
+    c = write(tmp_path, "Monza.json", circle_track("Monza", radius=700))
+    others = [a, b, c]
+    assert validate_tracks.check_file(b, strict=True, others=others) == ["doublon exact de Spa.json"]
+    assert validate_tracks.check_file(c, strict=True, others=others) == []
+    assert validate_tracks.main(["--strict", a, b, c]) == 1
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda o: o.update(pts=o["pts"][:-1]),
+        lambda o: o["pts"].__setitem__(3, [True, 1]),
+        lambda o: o["pts"].__setitem__(3, [1, 2, 3]),
+        lambda o: o["pts"].__setitem__(3, [100000, 1]),
+        lambda o: o.update(sectors=[0.01, 0.5]),
+        lambda o: o.update(sectors=None),
+        lambda o: o.update(key=""),
+        lambda o: o.update(extra=1),
+        lambda o: o.pop("v"),
+    ],
+)
+def test_schema_rejects(mutate):
+    o = circle_track("Spa")
+    mutate(o)
+    assert validate_tracks.schema_errors(o)
+
+
+def test_schema_accepts_export_format():
+    assert validate_tracks.schema_errors(circle_track("Spa")) == []
+    assert validate_tracks.schema_errors(circle_track("Spa", missing=10)) == []
+
+
+def test_repository_tracks_strict():
+    assert validate_tracks.main(["--strict", "--schema"]) == 0
+
+
+def test_track_files_skip_index_and_schema(tmp_path):
+    for name in ("index.json", "schema.json", "Spa.json"):
+        write(tmp_path, name, {})
+    assert [os.path.basename(f) for f in validate_tracks.track_files(str(tmp_path))] == ["Spa.json"]
+
+
+# ---------------------------------------------------------------- index et publication
+
+
+def test_build_index(tmp_path):
+    import build_index
+
+    write(tmp_path, "Spa.json", circle_track("Spa"))
+    write(tmp_path, "Bad.json", {"key": "Bad"})
+    write(tmp_path, "schema.json", {"type": "object"})
+    write(tmp_path, "index.json", {"v": 1, "tracks": []})
+    assert build_index.build(str(tmp_path)) == [{"key": "Spa", "file": "Spa.json"}]
+
+
+def test_push_tracks_dry_run(tmp_path, monkeypatch, capsys):
+    import push_tracks
+
+    data = tmp_path / "data" / "tracks"
+    data.mkdir(parents=True)
+    write(data, "Nouveau.json", {**circle_track("Circuit inédit"), "shared": False, "saved": 1})
+    write(data, "Incomplet.json", circle_track("Incomplet", sectors=(0.3, None)))
+    monkeypatch.setattr(sys, "argv", ["push_tracks.py", "--data", str(tmp_path / "data"), "--dry-run"])
+    assert push_tracks.main() == 0
+    out = capsys.readouterr().out
+    assert "+ Circuit inédit" in out
+    assert "Incomplet.json ignorée" in out
