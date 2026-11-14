@@ -1,5 +1,6 @@
 """Calculs de stratégie : conso carburant/énergie, usure pneus, temps perdu aux stands,
 tours restants et plan d'arrêts. Aucune dépendance au jeu : tout est testable seul."""
+
 from __future__ import annotations
 
 import math
@@ -61,8 +62,9 @@ class RaceStats:
         self.had_pit = in_pits
         self.dirty = neutral
 
-    def update(self, laps: int, fuel: float, energy: float, wear: list[float], in_pits: bool,
-               last_lap: float, neutral: bool) -> None:
+    def update(
+        self, laps: int, fuel: float, energy: float, wear: list[float], in_pits: bool, last_lap: float, neutral: bool
+    ) -> None:
         if self.laps is None or laps < self.laps:  # première lecture / retour garage / nouvelle session
             self._begin(laps, fuel, energy, wear, in_pits, neutral)
             self.stint_start = laps
@@ -77,15 +79,16 @@ class RaceStats:
         if neutral:
             self.dirty = True
         # pneus neufs : l'usure restante remonte nettement
-        if self.start_wear and any(w - s > 0.1 for w, s in zip(wear, self.start_wear)):
+        if self.start_wear and any(w - s > 0.1 for w, s in zip(wear, self.start_wear, strict=False)):
             self.wear_hist = []
             self.start_wear = list(wear)
             self.stint_start = laps
         if laps != self.laps:
             self._complete(laps, fuel, energy, wear, in_pits, last_lap, neutral)
 
-    def _complete(self, laps: int, fuel: float, energy: float, wear: list[float], in_pits: bool,
-                  last_lap: float, neutral: bool) -> None:
+    def _complete(
+        self, laps: int, fuel: float, energy: float, wear: list[float], in_pits: bool, last_lap: float, neutral: bool
+    ) -> None:
         t = last_lap if last_lap and last_lap > 30 else 0.0
         if self.had_pit:
             if t:
@@ -94,17 +97,17 @@ class RaceStats:
         elif not self.dirty:
             used = self.start_fuel - fuel
             if 0.05 < used < 40:
-                self.fuel_hist = (self.fuel_hist + [used])[-self.KEEP:]
+                self.fuel_hist = (self.fuel_hist + [used])[-self.KEEP :]
             used_e = self.start_energy - energy
             if 0.0005 < used_e < 0.5:
-                self.energy_hist = (self.energy_hist + [used_e])[-self.KEEP:]
+                self.energy_hist = (self.energy_hist + [used_e])[-self.KEEP :]
             if self.start_wear and len(self.start_wear) == len(wear):
-                worst = max(s - w for w, s in zip(wear, self.start_wear))
+                worst = max(s - w for w, s in zip(wear, self.start_wear, strict=False))
                 if 0.0005 < worst < 0.2:
-                    self.wear_hist = (self.wear_hist + [worst])[-self.KEEP:]
+                    self.wear_hist = (self.wear_hist + [worst])[-self.KEEP :]
             self._close_pit_window(t)
             if t:
-                self.laptime_hist = (self.laptime_hist + [t])[-self.KEEP:]
+                self.laptime_hist = (self.laptime_hist + [t])[-self.KEEP :]
         else:  # tour neutralisé : on n'apprend rien
             self.pit_acc, self.pit_acc_dirty = [], False
         self._begin(laps, fuel, energy, wear, in_pits, neutral)
@@ -149,8 +152,22 @@ class RaceStats:
 
     # ---- persistance ----
 
-    _FIELDS = ("laps", "start_fuel", "start_energy", "start_wear", "had_pit", "dirty", "fuel_hist", "energy_hist",
-               "laptime_hist", "wear_hist", "pit_acc", "pit_acc_dirty", "pit_loss_hist", "stint_start")
+    _FIELDS = (
+        "laps",
+        "start_fuel",
+        "start_energy",
+        "start_wear",
+        "had_pit",
+        "dirty",
+        "fuel_hist",
+        "energy_hist",
+        "laptime_hist",
+        "wear_hist",
+        "pit_acc",
+        "pit_acc_dirty",
+        "pit_loss_hist",
+        "stint_start",
+    )
 
     def snapshot(self) -> dict:
         return {k: getattr(self, k) for k in self._FIELDS}
@@ -178,8 +195,16 @@ class RaceStats:
 # --------------------------------------------------------------------------
 
 
-def remaining_laps(*, is_race: bool, max_laps: int, laps_done: int, lap_frac: float,
-                   time_remaining: float, time_into_lap: float, avg_lap: float) -> tuple[float, int]:
+def remaining_laps(
+    *,
+    is_race: bool,
+    max_laps: int,
+    laps_done: int,
+    lap_frac: float,
+    time_remaining: float,
+    time_into_lap: float,
+    avg_lap: float,
+) -> tuple[float, int]:
     """(tours restants fractionnaires, nombre de passages de ligne à effectuer).
 
     Course au temps : on finit au premier passage de ligne APRÈS la fin du chrono, donc le nombre de
@@ -201,10 +226,23 @@ def remaining_laps(*, is_race: bool, max_laps: int, laps_done: int, lap_frac: fl
 # --------------------------------------------------------------------------
 
 
-def compute_strategy(*, lap: int, remaining: float, fuel: float, capacity: float, fpl: float,
-                     ve: float, epl: float, wear_now: list[float], wear_pl: float, stint_lap: int,
-                     pit_loss: float, pit_loss_measured: bool = False,
-                     tyre_min: float = 0.25, margin: float = 0.5) -> dict:
+def compute_strategy(
+    *,
+    lap: int,
+    remaining: float,
+    fuel: float,
+    capacity: float,
+    fpl: float,
+    ve: float,
+    epl: float,
+    wear_now: list[float],
+    wear_pl: float,
+    stint_lap: int,
+    pit_loss: float,
+    pit_loss_measured: bool = False,
+    tyre_min: float = 0.25,
+    margin: float = 0.5,
+) -> dict:
     """Ressource limitante, prochain arrêt, arrêts pour finir, ajouts carburant / énergie."""
     avail: dict[str, float] = {}
     full: dict[str, float] = {}

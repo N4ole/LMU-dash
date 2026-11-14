@@ -1,0 +1,46 @@
+# Configuration des outils de développement uniquement.
+# L'application elle-même n'a AUCUNE dépendance externe (bibliothèque standard Python).
+
+[project]
+name = "lmu-dash"
+description = "Dashboard second écran pour Le Mans Ultimate"
+requires-python = ">=3.10"
+dynamic = ["version"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [
+    "pyLMUSharedMemory",  # bibliothèque vendorée : on ne la modifie pas
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "W",
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "SIM",  # simplifications
+    "BLE",  # except Exception trop larges (le code les annote déjà avec noqa)
+]
+ignore = [
+    "E501",    # longueur de ligne : gérée par le formateur
+    "SIM108",  # ternaires : laissé au choix de l'auteur
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["endurance", "flags", "readers", "server", "shared", "store", "strategy", "version", "pyLMUSharedMemory"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

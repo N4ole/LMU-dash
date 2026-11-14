@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+# Lecture seule par défaut ; chaque job ne reçoit que ce dont il a besoin.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - run: ruff check --output-format=github .
+      - run: ruff format --check .
+
+  test:
+    name: Tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest
+
+  tracks:
+    name: Validate tracks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Les PR externes ne peuvent toucher que tracks/*.json
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          bad=$(git diff --name-only "origin/${BASE_REF}...HEAD" | grep -vE '^tracks/[A-Za-z0-9._-]+\.json$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Une contribution externe ne peut modifier que des fichiers tracks/*.json. Fichiers refusés :"
+            echo "$bad"
+            exit 1
+          fi
+      - run: python tools/validate_tracks.py
+
+  # Un seul statut à exiger dans les règles de branche, quelle que soit la matrice.
+  result:
+    name: CI result
+    if: always()
+    needs: [lint, test, tracks]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tous les jobs doivent réussir
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Résultats : $RESULTS"
+          for r in $RESULTS; do [ "$r" = "success" ] || exit 1; done

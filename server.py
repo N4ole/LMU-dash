@@ -10,6 +10,7 @@ Usage :
     python server.py --demo          # données simulées (pour tester sans le jeu)
     python server.py --host 0.0.0.0  # accessible depuis une tablette / un autre PC
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,8 +33,8 @@ from shared import DEFAULT_REPO, Shared  # noqa: E402
 from store import Profiles, Records, Settings, StateFile, TrackStore, data_dir, resource_dir  # noqa: E402
 
 WEB_DIR = os.path.join(resource_dir(), "web")
-SEND_HZ = 20          # fréquence d'envoi vers le navigateur
-SAVE_EVERY = 10.0     # sauvegarde de l'état de course (s)
+SEND_HZ = 20  # fréquence d'envoi vers le navigateur
+SAVE_EVERY = 10.0  # sauvegarde de l'état de course (s)
 MAX_BODY = 64 * 1024
 
 
@@ -204,8 +205,9 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def _json(self, obj, status: int = 200) -> None:
-        self._send(json.dumps(obj, separators=(",", ":"), allow_nan=False, default=str).encode(),
-                   "application/json", status)
+        self._send(
+            json.dumps(obj, separators=(",", ":"), allow_nan=False, default=str).encode(), "application/json", status
+        )
 
     def _body_json(self) -> dict | None:
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
@@ -222,8 +224,11 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _csv(self, text: str, name: str) -> None:
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        self._send(("﻿" + text).encode("utf-8"), "text/csv; charset=utf-8",
-                   extra={"Content-Disposition": f'attachment; filename="{stamp}_{name}"'})
+        self._send(
+            ("﻿" + text).encode("utf-8"),
+            "text/csv; charset=utf-8",
+            extra={"Content-Disposition": f'attachment; filename="{stamp}_{name}"'},
+        )
 
     # ---- GET ----
     def do_GET(self):
@@ -245,8 +250,12 @@ class Handler(SimpleHTTPRequestHandler):
             if not o:
                 return self._json({"error": "pas de carte"}, 404)
             from store import slug
-            return self._send(json.dumps(o, separators=(",", ":")).encode(), "application/json",
-                              extra={"Content-Disposition": f'attachment; filename="{slug(o["key"])}.json"'})
+
+            return self._send(
+                json.dumps(o, separators=(",", ":")).encode(),
+                "application/json",
+                extra={"Content-Disposition": f'attachment; filename="{slug(o["key"])}.json"'},
+            )
         if path == "/api/records":
             return self._json(ENGINE.records.all())
         if path == "/api/history":
@@ -292,8 +301,15 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/profiles":
             act, name = body.get("action"), str(body.get("name") or "")
             pr = ENGINE.profiles
-            ok = (pr.create(name) if act == "create" else ENGINE.use_profile(name) if act == "switch"
-                  else pr.delete(name) if act == "delete" else False)
+            ok = (
+                pr.create(name)
+                if act == "create"
+                else ENGINE.use_profile(name)
+                if act == "switch"
+                else pr.delete(name)
+                if act == "delete"
+                else False
+            )
             if act == "create" and ok and body.get("switch"):
                 ENGINE.use_profile(pr.clean(name))
             return self._json({"ok": ok, **pr.info()})
@@ -342,16 +358,20 @@ def main() -> None:
     profiles = Profiles(folder)
     if args.profile:
         profiles.create(args.profile)
-        profiles.switch(next((n for n in profiles.names if n.lower() == profiles.clean(args.profile).lower()), profiles.active))
+        profiles.switch(
+            next((n for n in profiles.names if n.lower() == profiles.clean(args.profile).lower()), profiles.active)
+        )
     SETTINGS = Settings(os.path.join(profiles.path(), "settings.json"))
     if args.pit_loss is not None:
         SETTINGS.update({"pitLoss": args.pit_loss})
 
     if args.demo:
         from readers import DemoReader
+
         reader = DemoReader(SETTINGS, args.demo_speed)
     else:
         from readers import LMUReader
+
         reader = LMUReader(SETTINGS)
     ENGINE = Engine(reader, SETTINGS, folder, profiles)
     SHARED = Shared(args.shared_repo, ENGINE.tracks, enabled=not args.no_sync and not args.demo)
@@ -372,7 +392,7 @@ def main() -> None:
     print(f"LMU Dash {'(DEMO) ' if args.demo else ''}prêt -> {url}")
     print(f"Données sauvegardées dans : {folder}  (joueur : {profiles.active})")
     if args.host == "0.0.0.0":
-        print("Accessible depuis ton réseau local avec l'IP de ce PC (ex: http://192.168.x.x:%d)" % args.port)
+        print(f"Accessible depuis ton réseau local avec l'IP de ce PC (ex: http://192.168.x.x:{args.port})")
     print("Ctrl+C pour arrêter.")
     if not args.no_browser:
         threading.Timer(0.8, webbrowser.open, [url]).start()

@@ -4,6 +4,7 @@
   qui lui manquent. Chaque fichier est validé avant d'être utilisé.
 - Pour contribuer, l'utilisateur exporte sa carte complète et la dépose via une Pull Request
   (page « Upload files » de GitHub) ; une vérification automatique contrôle le fichier avant fusion."""
+
 from __future__ import annotations
 
 import json
@@ -12,8 +13,6 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-
-from store import validate_track
 
 DEFAULT_REPO = "N4ole/lmu-dash"
 BRANCH = "main"
@@ -35,7 +34,15 @@ class Shared:
         self.repo = repo
         self.tracks = tracks
         self.enabled = enabled and bool(repo)
-        self.status = {"repo": repo, "enabled": self.enabled, "last": 0, "ok": None, "remote": 0, "added": 0, "error": ""}
+        self.status = {
+            "repo": repo,
+            "enabled": self.enabled,
+            "last": 0,
+            "ok": None,
+            "remote": 0,
+            "added": 0,
+            "error": "",
+        }
         self.lock = threading.Lock()
         self.busy = False
 
@@ -72,8 +79,9 @@ class Shared:
         except Exception as e:  # noqa: BLE001  hors-ligne, dépôt absent...
             ok, err = False, str(e)[:120]
         with self.lock:
-            self.status.update({"last": time.time(), "ok": ok, "remote": remote, "added": self.status["added"] + added,
-                                "error": err})
+            self.status.update(
+                {"last": time.time(), "ok": ok, "remote": remote, "added": self.status["added"] + added, "error": err}
+            )
             self.busy = False
 
     def start(self) -> None:
@@ -81,6 +89,7 @@ class Shared:
             while True:
                 self.sync()
                 time.sleep(SYNC_EVERY)
+
         if self.enabled:
             threading.Thread(target=loop, daemon=True).start()
 

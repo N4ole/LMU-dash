@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Vérifie les cartes partagées (tracks/*.json) : format, 360 points, secteurs, nom de fichier."""
+
 import glob
 import json
 import os
@@ -16,7 +17,8 @@ for f in sorted(glob.glob("tracks/*.json")):
     try:
         if os.path.getsize(f) > 200_000:
             raise ValueError("fichier trop gros")
-        o = json.load(open(f, encoding="utf-8"))
+        with open(f, encoding="utf-8") as fh:
+            o = json.load(fh)
         if not validate_track(o):
             raise ValueError("carte invalide (360 points, ≥97 % remplis, 2 secteurs croissants)")
         if name != slug(o["key"]) + ".json":

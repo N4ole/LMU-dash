@@ -1,0 +1,30 @@
+# Installation : python -m pip install -r requirements-dev.txt && pre-commit install
+exclude: ^(pyLMUSharedMemory/|build/|dist/)
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-json
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: ^tracks/.*\.json$
+      - id: trailing-whitespace
+        exclude: ^tracks/.*\.json$
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-merge-conflict
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.5
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: validate-tracks
+        name: validate tracks
+        entry: python tools/validate_tracks.py
+        language: system
+        files: ^tracks/.*\.json$
+        pass_filenames: false
