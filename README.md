@@ -13,8 +13,8 @@ drapeaux, carte du circuit avec toutes les voitures, stratégie, chrono d'endura
 
 Le .exe doit être construit **sur Windows** (impossible depuis Linux) :
 - soit `build_exe.bat` (Python 3.10+ installé) → `dist\LMU-Dash.exe` ;
-- soit GitHub : pousse le dossier dans un dépôt, onglet *Actions → Build LMU-Dash.exe → Run workflow*,
-  puis télécharge l'artefact.
+- soit GitHub : onglet *Actions → Release → Run workflow* (construit et teste l'exe, puis télécharge l'artefact).
+  Les versions officielles sont publiées automatiquement dans *Releases* à chaque tag `vX.Y.Z`.
 Windows Defender / un antivirus peut râler sur un .exe PyInstaller non signé : c'est un faux positif classique.
 
 ### Option B — avec Python

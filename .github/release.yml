@@ -1,0 +1,30 @@
+# Catégories des notes de release générées automatiquement (à partir des labels des PR fusionnées).
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: 🗺️ Nouvelles cartes de circuits
+      labels:
+        - cartes
+    - title: ✨ Améliorations
+      labels:
+        - amélioration
+        - enhancement
+    - title: 🐛 Corrections
+      labels:
+        - bug
+    - title: 🔒 Sécurité
+      labels:
+        - sécurité
+    - title: 📚 Documentation
+      labels:
+        - documentation
+    - title: 📦 Dépendances et CI
+      labels:
+        - dépendances
+        - dependencies
+        - github_actions
+    - title: Autres changements
+      labels:
+        - "*"

@@ -31,6 +31,8 @@ from endurance import Endurance  # noqa: E402
 from flags import FlagWatch  # noqa: E402
 from shared import DEFAULT_REPO, Shared  # noqa: E402
 from store import Profiles, Records, Settings, StateFile, TrackStore, data_dir, resource_dir  # noqa: E402
+from updates import UpdateCheck  # noqa: E402
+from version import VERSION  # noqa: E402
 
 WEB_DIR = os.path.join(resource_dir(), "web")
 SEND_HZ = 20  # fréquence d'envoi vers le navigateur
@@ -180,6 +182,7 @@ class Hub:
 HUB = Hub()
 ENGINE: Engine | None = None
 SHARED: Shared | None = None
+UPDATES: UpdateCheck | None = None
 SETTINGS: Settings | None = None
 
 
@@ -243,6 +246,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(ENGINE.tracks.current())
         if path == "/api/profiles":
             return self._json(ENGINE.profiles.info())
+        if path == "/api/version":
+            return self._json(UPDATES.info())
         if path == "/api/shared":
             return self._json(SHARED.info())
         if path == "/api/export/track.json":
@@ -339,8 +344,9 @@ def producer(engine: Engine) -> None:
 
 
 def main() -> None:
-    global ENGINE, SETTINGS, SHARED
+    global ENGINE, SETTINGS, SHARED, UPDATES
     ap = argparse.ArgumentParser(description="LMU Dash - dashboard second écran pour Le Mans Ultimate")
+    ap.add_argument("--version", action="version", version=f"LMU Dash {VERSION}")
     ap.add_argument("--demo", action="store_true", help="données simulées (sans le jeu)")
     ap.add_argument("--demo-speed", type=float, default=1.0, help="accélère la démo (ex: 20)")
     ap.add_argument("--host", default="127.0.0.1", help="0.0.0.0 pour y accéder depuis un autre appareil du réseau")
@@ -349,7 +355,11 @@ def main() -> None:
     ap.add_argument("--data-dir", default=None, help="dossier de sauvegarde (par défaut : ./data à côté du programme)")
     ap.add_argument("--profile", default=None, help="joueur (profil) à utiliser ; créé s'il n'existe pas")
     ap.add_argument("--shared-repo", default=DEFAULT_REPO, help="dépôt GitHub des cartes partagées (owner/nom)")
-    ap.add_argument("--no-sync", action="store_true", help="ne pas télécharger les cartes partagées")
+    ap.add_argument(
+        "--no-sync",
+        action="store_true",
+        help="hors-ligne : ne pas télécharger les cartes partagées ni chercher de nouvelle version",
+    )
     ap.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur au démarrage")
     args = ap.parse_args()
 
@@ -375,6 +385,7 @@ def main() -> None:
         reader = LMUReader(SETTINGS)
     ENGINE = Engine(reader, SETTINGS, folder, profiles)
     SHARED = Shared(args.shared_repo, ENGINE.tracks, enabled=not args.no_sync and not args.demo)
+    UPDATES = UpdateCheck(DEFAULT_REPO, enabled=not args.no_sync and not args.demo)
 
     shown = "localhost" if args.host in ("127.0.0.1", "0.0.0.0") else args.host
     url = f"http://{shown}:{args.port}"
@@ -388,8 +399,9 @@ def main() -> None:
     srv.daemon_threads = True
     threading.Thread(target=producer, args=(ENGINE,), daemon=True).start()
     SHARED.start()
+    UPDATES.start()
 
-    print(f"LMU Dash {'(DEMO) ' if args.demo else ''}prêt -> {url}")
+    print(f"LMU Dash {VERSION} {'(DEMO) ' if args.demo else ''}prêt -> {url}")
     print(f"Données sauvegardées dans : {folder}  (joueur : {profiles.active})")
     if args.host == "0.0.0.0":
         print(f"Accessible depuis ton réseau local avec l'IP de ce PC (ex: http://192.168.x.x:{args.port})")
