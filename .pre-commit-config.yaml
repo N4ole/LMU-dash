@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: validate-tracks
         name: validate tracks
-        entry: python tools/validate_tracks.py
+        entry: python tools/validate_tracks.py --strict
         language: system
         files: ^tracks/.*\.json$
         pass_filenames: false

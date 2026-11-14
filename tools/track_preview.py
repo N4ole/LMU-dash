@@ -9,6 +9,7 @@ validés, et tout texte qui en provient est neutralisé avant d'être écrit dan
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -17,7 +18,17 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from track_svg import render_svg  # noqa: E402
-from validate_tracks import ROOT, check_track, load  # noqa: E402
+from validate_tracks import (  # noqa: E402
+    ROOT,
+    check_track,
+    duplicate_errors,
+    load,
+    loop_steps,
+    strict_errors,
+    track_files,
+)
+
+from store import validate_track  # noqa: E402
 
 MARKER = "<!-- track-preview -->"
 SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]+\.json$")
@@ -46,6 +57,8 @@ def describe(path: str, base_dir: str) -> dict:
         return info
     info["track"] = o if isinstance(o, dict) else None
     info["errors"] = check_track(o, name)
+    if validate_track(o):  # mêmes règles que la CI (validate_tracks.py --strict)
+        info["errors"] += strict_errors(o) + duplicate_errors(path, o, track_files(base_dir))
     return info
 
 
@@ -70,6 +83,9 @@ def report(items: list[dict], image_url: str | None, deleted: list[str]) -> str:
         filled = sum(1 for p in pts if p)
         lines.append(f"- Circuit : `{safe_text(t.get('key', '?'))}`")
         lines.append(f"- Points : {filled}/{len(pts)}")
+        if filled > 1 and all(isinstance(p, list) and len(p) == 2 for p in pts if p):
+            with contextlib.suppress(TypeError):
+                lines.append(f"- Longueur de la boucle : {sum(loop_steps(pts)) / 1000:.2f} km")
         sec = t.get("sectors")
         if isinstance(sec, list) and len(sec) == 2:
             lines.append(f"- Secteurs : S1 → {pct(sec[0])}, S2 → {pct(sec[1])}")

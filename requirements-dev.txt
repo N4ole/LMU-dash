@@ -2,4 +2,5 @@
 #   python -m pip install -r requirements-dev.txt
 pytest==9.2.0
 ruff==0.17.5
+jsonschema==4.26.0
 pre-commit==4.7.0; python_version >= "3.11"  # outil local (ignoré en 3.10)

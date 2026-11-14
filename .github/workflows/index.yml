@@ -1,25 +1,71 @@
 name: Index des cartes
+
+# Après la fusion d'une carte, tracks/index.json (lu par l'application) doit être régénéré.
+# main est protégée : au lieu de pousser dessus, on ouvre (ou met à jour) une PR automatique.
+#
+# Jeton : si une GitHub App est configurée (variable INDEX_APP_CLIENT_ID + secret INDEX_APP_PRIVATE_KEY),
+# la PR est créée en son nom : la CI s'exécute alors normalement et la PR peut être fusionnée
+# automatiquement dès que les checks obligatoires passent. Sans App, le GITHUB_TOKEN est utilisé : la PR
+# est créée, mais GitHub ne lance pas la CI sur une PR créée par ce jeton (fermer/rouvrir la PR la relance).
+
 on:
   push:
     branches: [main]
-    paths: ["tracks/*.json"]
+    paths: ["tracks/*.json", "!tracks/index.json"]
+  workflow_dispatch:
 
 permissions: {}
+
+concurrency:
+  group: tracks-index
+  cancel-in-progress: false
 
 jobs:
   index:
     name: Rebuild tracks index
     runs-on: ubuntu-latest
     permissions:
-      contents: write # pousse tracks/index.json
+      contents: write # pousse la branche bot/tracks-index (pas main)
+      pull-requests: write # ouvre la PR
     steps:
+      - name: GitHub App token (optional)
+        id: app
+        if: vars.INDEX_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.INDEX_APP_CLIENT_ID }}
+          private-key: ${{ secrets.INDEX_APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - run: python tools/validate_tracks.py && python tools/build_index.py
-      - run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tracks/index.json
-          git diff --cached --quiet || (git commit -m "Mise à jour de l'index des cartes" && git push)
+
+      - name: Rebuild index
+        run: python tools/validate_tracks.py --strict && python tools/build_index.py
+
+      - name: Open or update the index PR
+        id: cpr
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
+        with:
+          token: ${{ steps.app.outputs.token || github.token }}
+          add-paths: tracks/index.json
+          branch: bot/tracks-index
+          delete-branch: true
+          commit-message: "Mettre à jour l'index des cartes"
+          title: "Mettre à jour l'index des cartes"
+          body: |
+            Index régénéré automatiquement après la fusion de nouvelles cartes (`tools/build_index.py`).
+            Une fois fusionné, les joueurs reçoivent ces cartes au prochain lancement de LMU Dash.
+          labels: ignore-for-release
+
+      - name: Enable auto-merge
+        if: steps.app.outputs.token != '' && steps.cpr.outputs.pull-request-number != ''
+        continue-on-error: true # nécessite « Allow auto-merge » dans les réglages du dépôt
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ steps.cpr.outputs.pull-request-number }}
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --auto

@@ -6,14 +6,18 @@
     python tools/push_tracks.py --data "D:\\LMU\\data" # dossier data de l'exe
 Options : --no-push (commit seulement), --force (remplace une carte déjà présente), --dry-run.
 
-Étapes : cartes complètes avec secteurs -> validation -> copie dans tracks/ -> index -> git commit + push.
+Étapes : cartes complètes avec secteurs -> branche cartes/<date> depuis origin/main -> copie dans tracks/
+-> validation stricte -> commit -> push -> Pull Request (gh si installé, sinon lien affiché).
+L'index (tracks/index.json) est régénéré automatiquement après la fusion.
 """
 
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
+import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, ROOT)
@@ -64,18 +68,32 @@ def main() -> int:
     if a.dry_run:
         return 0
 
+    branch = "cartes/" + time.strftime("%Y%m%d-%H%M%S")
+    previous = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    # main est protégée : les cartes partent sur une branche dédiée, créée depuis origin/main à jour
+    if (
+        git("fetch", "origin", "main", check=False).returncode
+        or git("switch", "-c", branch, "origin/main", check=False).returncode
+    ):
+        print("Impossible de créer la branche (modifications en cours dans tracks/ ?). Rien n'est publié.")
+        return 1
     for _key, _p, target, out in added:
         with open(target, "w", encoding="utf-8") as f:
             json.dump(out, f, separators=(",", ":"))
-    # index + validation
-    for script in ("validate_tracks.py", "build_index.py"):
-        r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", script)], cwd=ROOT)
-        if r.returncode:
-            print("Validation échouée, rien n'est poussé.")
-            return 1
+    files = [t for _k, _p, t, _o in added]
+    r = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "validate_tracks.py"), "--strict", *files], cwd=ROOT
+    )
+    if r.returncode:
+        print("Validation échouée, rien n'est publié.")
+        for t in files:
+            os.remove(t)
+        git("switch", previous, check=False)
+        git("branch", "-D", branch, check=False)
+        return 1
     names = ", ".join(k for k, *_ in added)
-    git("add", "tracks")
-    c = git("commit", "-m", f"Cartes : {names}", check=False)
+    git("add", *files)
+    c = git("commit", "-m", f"Ajouter les cartes : {names}", check=False)
     if c.returncode:
         print(c.stdout + c.stderr)
         return 1
@@ -84,13 +102,44 @@ def main() -> int:
         o = read_json(p) or {}
         o["shared"] = True
         write_json(p, o)
-    if a.no_push:
-        print("Commit créé (pas de push).")
+    try:
+        if a.no_push:
+            print(f"Commit créé sur la branche {branch} (pas de push).")
+            return 0
+        r = git("push", "-u", "origin", branch, check=False)
+        if r.returncode:
+            print(r.stdout + r.stderr)
+            print("Le push a échoué : vérifie ta connexion GitHub (git push à la main).")
+            return r.returncode
+        title = f"Ajouter les cartes : {names}"[:120]
+        body = "Cartes publiées avec tools/push_tracks.py. L'index sera régénéré automatiquement après la fusion."
+        if shutil.which("gh"):
+            pr = subprocess.run(
+                [
+                    "gh",
+                    "pr",
+                    "create",
+                    "--base",
+                    "main",
+                    "--head",
+                    branch,
+                    "--title",
+                    title,
+                    "--body",
+                    body,
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            print(pr.stdout + pr.stderr)
+            if pr.returncode == 0:
+                print("PR ouverte : fusionne-la sur GitHub une fois la CI verte.")
+                return 0
+        print(f"Branche poussée. Ouvre la PR ici : https://github.com/N4ole/LMU-dash/compare/main...{branch}?expand=1")
         return 0
-    r = git("push", check=False)
-    print(r.stdout + r.stderr)
-    print("Publié." if r.returncode == 0 else "Le push a échoué : vérifie ta connexion GitHub (git push à la main).")
-    return r.returncode
+    finally:
+        git("switch", previous, check=False)
 
 
 if __name__ == "__main__":

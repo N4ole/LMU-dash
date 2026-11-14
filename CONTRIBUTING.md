@@ -102,6 +102,19 @@ La CI (GitHub Actions) relance tout cela sur Windows et Linux, Python 3.10, 3.12
    la CI doit être verte, et l'historique reste linéaire (fusion « Squash » ou « Rebase »).
 4. Ajoute une ligne dans [CHANGELOG.md](CHANGELOG.md) (section « Non publié ») si le changement est visible.
 
+### Publier ses propres cartes (mainteneur)
+
+Depuis ton clone, après avoir roulé : `pousser_cartes.bat` (ou `python tools/push_tracks.py`,
+`--data "D:\LMU\data"` si l'exe est ailleurs, `--dry-run` pour voir, `--force` pour remplacer une carte).
+Le script crée une branche `cartes/<date>` depuis `origin/main`, y copie les cartes complètes, les valide en mode
+strict, pousse la branche et ouvre la PR (avec `gh` s'il est installé, sinon il affiche le lien).
+
+### Format et validation des cartes
+
+`tracks/schema.json` décrit le format (JSON Schema). `python tools/validate_tracks.py --strict --schema` ajoute
+aux règles de l'application : format exact de l'export, boucle de 1 à 30 km, aucun point aberrant (saut de plus
+de 8 fois le pas médian), secteurs d'au moins 5 % du tour, aucun doublon exact d'une carte existante.
+
 ### Publier une version (mainteneur)
 
 1. Mettre à jour `VERSION` dans `version.py` et déplacer « Non publié » vers la nouvelle version dans `CHANGELOG.md`.

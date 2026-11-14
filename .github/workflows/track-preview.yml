@@ -56,7 +56,7 @@ jobs:
           count=0
           while IFS=$'\t' read -r status file; do
             [[ "$file" =~ ^tracks/[A-Za-z0-9._-]+\.json$ ]] || continue
-            [ "$file" = "tracks/index.json" ] && continue
+            case "$file" in tracks/index.json|tracks/schema.json) continue ;; esac
             if [ "$status" = "removed" ]; then deleted+=("$(basename "$file")"); continue; fi
             size=$(git cat-file -s "refs/remotes/pr/head:$file")
             if [ "$size" -gt 200000 ]; then echo "::warning::$file ignoré (trop gros)"; continue; fi

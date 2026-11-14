@@ -69,13 +69,18 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          bad=$(git diff --name-only "origin/${BASE_REF}...HEAD" | grep -vE '^tracks/[A-Za-z0-9._-]+\.json$' || true)
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+          # seuls des fichiers de cartes, jamais l'index généré ni le schéma
+          bad=$(printf '%s\n' "$changed" | grep -vE '^tracks/[A-Za-z0-9._-]+\.json$' | grep -v '^$' || true)
+          bad="$bad$(printf '%s\n' "$changed" | grep -E '^tracks/(index|schema)\.json$' || true)"
           if [ -n "$bad" ]; then
             echo "::error::Une contribution externe ne peut modifier que des fichiers tracks/*.json. Fichiers refusés :"
             echo "$bad"
             exit 1
           fi
-      - run: python tools/validate_tracks.py
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Validate tracks (strict + JSON schema)
+        run: python tools/validate_tracks.py --strict --schema
 
   # Un seul statut à exiger dans les règles de branche, quelle que soit la matrice.
   result:

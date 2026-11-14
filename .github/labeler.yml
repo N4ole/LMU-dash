@@ -4,7 +4,7 @@
 cartes:
   - all:
       - changed-files:
-          - all-globs-to-all-files: ["tracks/*.json", "!tracks/index.json"]
+          - all-globs-to-all-files: ["tracks/*.json", "!tracks/index.json", "!tracks/schema.json"]
 
 documentation:
   - changed-files:
